@@ -1,9 +1,9 @@
 # Dependabot configuration for Linux Shell Dotfiles
-# Optimized for automated dependency updates
+# Automated dependency updates for GitHub Actions
 
 version: 2
 updates:
-  # GitHub Actions - Primary updates
+  # GitHub Actions - Weekly updates
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -14,6 +14,9 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
     groups:
       actions-minor:
         update-types:
@@ -22,16 +25,3 @@ updates:
       actions-major:
         update-types:
           - "major"
-
-  # Security updates for all ecosystems (daily, separate from regular updates)
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "daily"
-      time: "06:00"
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: "security"
-    labels:
-      - "security"
-      - "dependencies"
