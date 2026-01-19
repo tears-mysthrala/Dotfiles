@@ -1,0 +1,49 @@
+feat: Complete migration to Linux-native shell configuration
+
+- Replaced PowerShell scripts with POSIX-compliant shell scripts
+- Added Makefile-based installation system with multi-distro support
+- Implemented automatic package manager detection (apt, dnf, pacman, etc.)
+- Added modern CLI tools integration:
+  * Starship (cross-shell prompt)
+  * Zoxide (smart directory navigation)
+  * FZF (fuzzy finder)
+  * Eza (modern ls replacement)
+  * Bat (cat with syntax highlighting)
+- Created modular shell configuration:
+  * aliases.sh - Common shortcuts and tool aliases
+  * functions.sh - System updates, git helpers, utilities
+  * exports.sh - Environment variables and PATH configuration
+- Added bootstrap installer (install.sh) with auto-detection
+- Ported all PowerShell aliases and functions to Bash/Zsh equivalents
+- Updated documentation for Linux environment
+- Added migration guide and enhanced installation docs
+
+BREAKING CHANGE: This removes all PowerShell-specific code and Windows
+compatibility. The repository is now exclusively for Linux-based systems.
+
+Files added:
+- Makefile (orchestrates installation)
+- install.sh (bootstrap script)
+- cleanup-legacy.sh (removes PowerShell files)
+- dotfiles/shell/aliases.sh
+- dotfiles/shell/functions.sh
+- dotfiles/shell/exports.sh
+- MIGRATION.md (migration guide)
+
+Files removed:
+- Microsoft.PowerShell_profile.ps1
+- powershell.config.json
+- Core/ (all PowerShell modules)
+- Scripts/ (PowerShell scripts)
+- tools/*.ps1, tools/*.bat
+
+Legacy features ported:
+✓ Navigation shortcuts (.. ... .3 .4 .5)
+✓ Editor detection and lazy loading
+✓ Modern tool aliases (eza, bat, zoxide, fzf)
+✓ Git shortcuts and helpers
+✓ System update function (multi-distro)
+✓ Cleanup utilities
+✓ Archive extraction
+✓ Network utilities (pubip, myip)
+✓ Process management helpers
