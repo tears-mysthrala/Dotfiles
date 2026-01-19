@@ -166,7 +166,7 @@ tail -20 ~/.zshrc
 You should see a section like:
 ```bash
 # Dotfiles configuration
-for file in $HOME/.config/shell/{exports,aliases,functions}.sh; do
+for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
     [ -f "$file" ] && source "$file"
 done
 ```

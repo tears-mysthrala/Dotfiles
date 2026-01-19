@@ -14,7 +14,7 @@
 # 1. exports (environment variables, PATH)
 # 2. aliases (command shortcuts)
 # 3. functions (custom shell functions)
-for file in "$HOME/.config/shell/{exports,aliases,functions}.sh"; do
+for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
     [ -f "$file" ] && source "$file"
 done
 

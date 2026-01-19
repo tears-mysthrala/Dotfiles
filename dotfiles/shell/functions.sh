@@ -270,15 +270,6 @@ serve() {
 # ============================================================================
 # File Search Helpers
 # ============================================================================
-# Find file by name
-ff() {
-    if command -v fd &>/dev/null; then
-        fd "$@"
-    else
-        find . -type f -iname "*$1*"
-    fi
-}
-
 # Find directory by name
 fd_dir() {
     if command -v fd &>/dev/null; then
@@ -360,7 +351,7 @@ if command -v chezmoi &>/dev/null; then
     alias cze='chezmoi edit'
     alias czd='chezmoi diff'
     alias czap='chezmoi apply'
-    alias czcd='cd $(chezmoi source-path)'
+    czcd() { cd "$(chezmoi source-path)" || return 1; }
     alias cm='chezmoi'
     
     # Chezmoi commit and push
