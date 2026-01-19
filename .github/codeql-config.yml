@@ -4,21 +4,18 @@ queries:
   - uses: security-and-quality
   - uses: security-experimental
 
-# Additional custom queries for PowerShell-specific security issues
+# Additional custom queries for shell script security issues
 paths:
-  - "**/*.ps1"
-  - "**/*.psm1"
-  - "**/*.psd1"
+  - "**/*.sh"
+  - "**/*.bash"
+  - "**/Makefile"
   - "**/*.yml"
   - "**/*.yaml"
 
 paths-ignore:
   - "**/node_modules/**"
   - "**/.git/**"
-  - "**/Modules/**"  # Third-party modules
-  - "**/Help/**"     # Generated help files
   - "**/docs/**"     # Documentation
-  - "**/tools/**"    # Build tools
   - "**/*.sarif"     # SARIF result files
   - "**/results.sarif"
   - "**/devskim-results.sarif"

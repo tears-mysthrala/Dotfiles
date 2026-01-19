@@ -1,171 +1,302 @@
 # Installation Guide
 
+Complete guide for installing the Linux-native dotfiles configuration.
+
 ## Prerequisites
 
-### Required
-- **PowerShell 7.5+** - Core runtime environment
-  ```powershell
-  winget install Microsoft.PowerShell
-  ```
+- A Linux-based operating system
+- Internet connection
+- `curl` or `wget` (for downloading tools)
 
-### Recommended
-Modern CLI tools for enhanced functionality:
+## Quick Install (Recommended)
 
-```powershell
-# Package managers
-winget install Chocolatey.Chocolatey
-winget install ScoopInstaller.Scoop
+```bash
+# Clone the repository
+git clone https://github.com/tears-mysthrala/Dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
 
-# Essential tools
-winget install sharkdp.bat           # Better 'cat'
-winget install eza-community.eza     # Better 'ls'
-winget install sharkdp.fd            # Better 'find'
-winget install ajeetdsouza.zoxide    # Smart directory navigation
-winget install Starship.Starship     # Cross-shell prompt
-winget install junegunn.fzf          # Fuzzy finder
-winget install JesseDuffield.lazygit # Git TUI
-
-# Development
-winget install GitHub.cli            # GitHub CLI
+# Run the installer
+chmod +x install.sh
+./install.sh
 ```
 
-## Installation
+## Manual Installation
 
-### 1. Clone Repository
+### Step 1: Install Dependencies
 
-```powershell
-# Backup existing profile (if any)
-if (Test-Path $PROFILE) {
-    Copy-Item $PROFILE "$PROFILE.backup-$(Get-Date -Format 'yyyyMMdd')"
-}
-
-# Clone into PowerShell documents folder
-git clone https://github.com/tears-mysthrala/PowerShell-profile.git `
-    "$HOME\Documents\PowerShell"
+#### Debian/Ubuntu
+```bash
+sudo apt update
+sudo apt install -y make git curl build-essential
 ```
 
-### 2. Install Dependencies (Automated)
-
-```powershell
-cd "$HOME\Documents\PowerShell"
-
-# Install all recommended tools
-.\tools\install-dependencies.ps1 -All
-
-# Or install selectively
-.\tools\install-dependencies.ps1 -Tools bat,eza,fd,fzf
+#### Fedora
+```bash
+sudo dnf install -y make git curl gcc
 ```
 
-### 3. Initialize Profile
-
-```powershell
-# Reload profile
-. $PROFILE
-
-# Verify installation
-Get-Command Test-CommandExist -ErrorAction SilentlyContinue
+#### Arch Linux
+```bash
+sudo pacman -Sy --noconfirm make git curl base-devel
 ```
 
-## Performance Optimization
+#### openSUSE
+```bash
+sudo zypper install -y make git curl gcc
+```
 
-The profile includes aggressive caching optimizations:
+### Step 2: Install Modern CLI Tools
 
-- **Module cache**: JSON-based caching in `$env:TEMP\PSModuleCache.json`
-- **Command cache**: Pre-cached existence checks for common tools
-- **Init cache**: Starship/Zoxide/GH CLI initialization cached and auto-invalidated
+```bash
+# Install all tools at once
+make deps
 
-**Expected load time:** ~500-600ms on modern hardware
+# Or install individually:
+make starship
+make zoxide
+make fzf
+make eza
+make bat
+```
 
-### Cache Management
+### Step 3: Create Symbolic Links
 
-```powershell
-# Clear all caches
-Remove-Item $env:TEMP\PSModuleCache.json -ErrorAction SilentlyContinue
-Remove-Item Config\*-cache.* -ErrorAction SilentlyContinue
+```bash
+make link
+```
 
-# Rebuild cache on next profile load
-. $PROFILE
+This creates symlinks in `~/.config/shell/` for:
+- `aliases.sh`
+- `functions.sh`
+- `exports.sh`
+
+### Step 4: Configure Your Shell
+
+```bash
+make config
+```
+
+This automatically adds initialization code to:
+- `~/.bashrc` (for Bash)
+- `~/.zshrc` (for Zsh)
+
+### Step 5: Reload Your Shell
+
+```bash
+# For Bash
+source ~/.bashrc
+
+# For Zsh
+source ~/.zshrc
+
+# Or simply restart your terminal
+exec bash  # or exec zsh
+```
+
+## Customization
+
+### Local Overrides
+
+Create local configuration files that won't be tracked by git:
+
+```bash
+# Custom exports
+touch ~/.config/shell/exports.local.sh
+echo 'export MY_VAR="value"' >> ~/.config/shell/exports.local.sh
+
+# Custom aliases
+touch ~/.config/shell/aliases.local.sh
+echo 'alias myalias="command"' >> ~/.config/shell/aliases.local.sh
+
+# Custom functions
+touch ~/.config/shell/functions.local.sh
+```
+
+### Starship Prompt
+
+The Starship configuration is linked from `dotfiles/config/starship.toml`.
+
+To customize:
+```bash
+# Edit the main config
+nano ~/.config/starship.toml
+
+# Or create a local override
+cp ~/.config/starship.toml ~/.config/starship.local.toml
+nano ~/.config/starship.local.toml
+```
+
+### FZF Configuration
+
+FZF is configured in `exports.sh`. To override:
+
+```bash
+# Add to ~/.config/shell/exports.local.sh
+export FZF_DEFAULT_OPTS='--height 50% --layout=reverse'
 ```
 
 ## Troubleshooting
 
-### Profile Not Loading
+### Tools Not Found After Installation
 
-```powershell
-# Check profile path
-$PROFILE
+Ensure `~/.local/bin` is in your PATH:
 
-# Verify file exists
-Test-Path $PROFILE
-
-# Check for syntax errors
-pwsh -NoProfile -Command { . $PROFILE }
+```bash
+echo $PATH | grep ".local/bin"
 ```
 
-### Missing Commands
+If not, add to `~/.bashrc` or `~/.zshrc`:
 
-```powershell
-# Check command availability
-Test-CommandExist bat
-
-# Verify PATH
-$env:PATH -split ';' | Where-Object { $_ -match 'scoop|chocolatey' }
+```bash
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### Slow Load Times
+### Shell Configuration Not Loading
 
-```powershell
-# Enable profiling
-$env:PROFILE_TIMING = 1
-. $PROFILE
+Check if the initialization code was added:
 
-# Check cache validity
-Get-Item $env:TEMP\PSModuleCache.json | Select-Object LastWriteTime
+```bash
+# For Bash
+tail -20 ~/.bashrc
+
+# For Zsh
+tail -20 ~/.zshrc
 ```
 
-### Module Import Failures
-
-```powershell
-# Force cache rebuild
-Remove-Item $env:TEMP\PSModuleCache.json
-Import-Module "$HOME\Documents\PowerShell\Core\UnifiedModuleManager.ps1" -Force
-Initialize-ModuleCache -Force
+You should see a section like:
+```bash
+# Dotfiles configuration
+for file in $HOME/.config/shell/{exports,aliases,functions}.sh; do
+    [ -f "$file" ] && source "$file"
+done
 ```
 
-## Verification
+### Symbolic Links Broken
 
-```powershell
-# Test unified aliases
-ll          # Should use 'eza' if available
-cat --version  # Should use 'bat' if available
+Recreate the links:
 
-# Test navigation
-z docs      # Zoxide navigation
-..          # Parent directory
+```bash
+make clean
+make link
+```
 
-# Test git helpers
-gst         # Git status
-gl          # Git log
+### Permission Denied Errors
 
-# Check module loading
-Get-Module -Name PSFzf,posh-git
+Ensure scripts are executable:
+
+```bash
+chmod +x install.sh cleanup-legacy.sh
+```
+
+For tools installed in `~/.local/bin`:
+
+```bash
+chmod +x ~/.local/bin/*
+```
+
+## Advanced Configuration
+
+### Install Additional Tools
+
+```bash
+# Install fd, ripgrep, and delta
+make extra-tools
+```
+
+### Install Only Specific Tools
+
+```bash
+# Using Make
+make starship
+make zoxide
+
+# Or manually with cargo (if installed)
+cargo install starship zoxide bat eza fd-find ripgrep git-delta
+```
+
+### Use Different Shell Config Directory
+
+By default, configs go to `~/.config/shell/`. To change:
+
+```bash
+# Edit Makefile and change SHELL_CONFIG_DIR
+SHELL_CONFIG_DIR := $(HOME)/.myconfig/shell
 ```
 
 ## Uninstallation
 
-```powershell
-# Remove profile
-Remove-Item "$HOME\Documents\PowerShell" -Recurse -Force
+### Remove Symbolic Links Only
 
-# Restore backup (if exists)
-Get-ChildItem "$HOME\Documents\PowerShell*.backup-*" | 
-    Sort-Object LastWriteTime -Descending | 
-    Select-Object -First 1 | 
-    Copy-Item -Destination "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+```bash
+make clean
+```
+
+### Full Uninstall
+
+```bash
+# Remove links
+make clean
+
+# Remove installed binaries from ~/.local/bin
+rm -f ~/.local/bin/{starship,zoxide,eza,bat,fd}
+
+# Remove shell initialization code from .bashrc/.zshrc
+# (You'll need to manually edit these files)
+
+# Remove FZF
+~/.fzf/uninstall
+
+# Remove configuration directory
+rm -rf ~/.config/shell
+```
+
+## Distribution-Specific Notes
+
+### Debian/Ubuntu
+
+- `bat` is installed as `batcat`. The Makefile creates a symlink to `bat`.
+- `fd` is installed as `fdfind`. Create alias: `alias fd=fdfind`
+
+### Arch Linux
+
+Most tools are available in official repos or AUR:
+
+```bash
+sudo pacman -S starship zoxide fzf bat eza fd ripgrep git-delta
+```
+
+### Fedora/RHEL
+
+```bash
+sudo dnf install starship zoxide fzf bat eza fd-find ripgrep git-delta
+```
+
+### Alpine Linux
+
+```bash
+sudo apk add starship zoxide fzf bat eza fd ripgrep git-delta
 ```
 
 ## Next Steps
 
-- [Customize](CUSTOMIZATION.md) your environment
-- Review [Function Reference](FunctionReference.md) for available commands
-- Check [Quick Reference](QuickReference.md) for aliases
+After installation:
+
+1. **Learn the aliases**: Run `alias` to see all configured shortcuts
+2. **Explore functions**: Source your config and use tab completion
+3. **Customize**: Add your own aliases and functions to `.local.sh` files
+4. **Update**: Run `upgrade` to update all system packages
+5. **Clean**: Run `cleanup` to clean package cache
+
+## Getting Help
+
+- Check `make help` for available targets
+- Read function source in `dotfiles/shell/functions.sh`
+- Review aliases in `dotfiles/shell/aliases.sh`
+
+## References
+
+- [Starship Documentation](https://starship.rs/)
+- [Zoxide GitHub](https://github.com/ajeetdsouza/zoxide)
+- [FZF GitHub](https://github.com/junegunn/fzf)
+- [Eza GitHub](https://github.com/eza-community/eza)
+- [Bat GitHub](https://github.com/sharkdp/bat)

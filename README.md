@@ -1,93 +1,183 @@
-# PowerShell Environment Configuration [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tears-mysthrala/PowerShell-profile)
+# Linux Native Dotfiles
 
-A comprehensive PowerShell environment setup with various utilities, aliases, and functions for enhanced productivity.
+Modern shell configuration for Linux with automated dependency management.
 
-## Quick Start
+## 🚀 Quick Start
 
-```powershell
+```bash
 # Clone the repository
-git clone https://github.com/tears-mysthrala/PowerShell-profile.git $HOME\Documents\PowerShell
+git clone https://github.com/tears-mysthrala/Dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
 
-# Install all dependencies (optional, but recommended)
-.\tools\install-dependencies.ps1 -All
-
-# Initialize the environment
-. $PROFILE
+# Run the installer
+chmod +x install.sh
+./install.sh
 ```
 
-## Documentation
+The installer will:
+1. Detect your Linux distribution
+2. Install `make` and `git` if needed
+3. Install modern CLI tools (starship, zoxide, fzf, eza, bat)
+4. Create symbolic links to shell configuration
+5. Configure your `.bashrc` or `.zshrc`
 
-- **[⚙️ Installation Guide](docs/INSTALLATION.md)** - Setup instructions, requirements & troubleshooting
-- **[🔧 Customization Guide](docs/CUSTOMIZATION.md)** - Extend and modify the environment
-- **[📖 Function Reference](docs/FunctionReference.md)** - Complete function signatures and documentation (628 functions)
-- **[📋 Quick Reference](docs/QuickReference.md)** - Fast lookup table for functions and aliases
+## 📦 What's Included
 
-## Key Features
+### Modern CLI Tools
+- **[Starship](https://starship.rs/)** - Cross-shell prompt
+- **[Zoxide](https://github.com/ajeetdsouza/zoxide)** - Smarter `cd` command
+- **[FZF](https://github.com/junegunn/fzf)** - Fuzzy finder
+- **[Eza](https://github.com/eza-community/eza)** - Modern `ls` replacement
+- **[Bat](https://github.com/sharkdp/bat)** - Cat with syntax highlighting
 
-- **File Operations**: Enhanced file manipulation with aliases like `touch`, `grep`, `sed`
-- **Navigation**: Smart directory navigation with `..`, `...`, and fuzzy finding
-- **Git Integration**: Streamlined git operations with aliases and helpers
-- **Package Management**: Support for Chocolatey, Scoop, and system updates
-- **Development Tools**: Integration with `bat`, `fzf`, `eza`, and other modern CLI tools
-- **Performance Monitoring**: Built-in timing and optimization features
+### Shell Configuration
+- **aliases.sh** - Common shortcuts and modern tool aliases
+- **functions.sh** - Useful shell functions (system updates, git helpers, etc.)
+- **exports.sh** - Environment variables and PATH configuration
 
-## Performance
+## 🛠️ Manual Installation
 
-**Current load time: ~500-600ms** (optimized with aggressive caching)
+```bash
+# Install dependencies only
+make deps
 
-### Optimization Features
+# Create symbolic links only
+make link
 
-- **Module caching**: JSON-based cache in `$env:TEMP\PSModuleCache.json` eliminates repeated `Get-Module -ListAvailable` calls
-- **Command pre-caching**: Common tools (bat, eza, fd, zoxide, etc.) checked once at startup
-- **Starship init cache**: Full PowerShell init script cached and auto-invalidated on binary/config changes
-- **Path caching**: Repeated path checks cached in session memory
-- **Parallel updates**: Module updates run in parallel using `Start-ThreadJob`
+# Configure shell initialization only
+make config
 
-**Cache management:**
-```powershell
-# Clear all caches
-Remove-Item $env:TEMP\PSModuleCache.json
-Remove-Item Config\*-cache.*
-. $PROFILE  # Rebuild on reload
+# Full installation
+make install
 ```
 
-## Requirements
+## 📋 Available Make Targets
 
-- PowerShell 7+
-- Optional: `git`, `fzf`, `bat`, `eza`, `lazygit`, `zoxide`
+| Target | Description |
+|--------|-------------|
+| `make install` | Full installation (deps + link + config) |
+| `make deps` | Install modern CLI tools |
+| `make link` | Create symbolic links |
+| `make config` | Configure shell initialization |
+| `make clean` | Remove symbolic links |
+| `make help` | Show all available targets |
 
-## Contributing
+### Individual Tool Installation
 
-This project uses local validation and documentation generation. Before committing:
+```bash
+make starship    # Install Starship prompt
+make zoxide      # Install Zoxide
+make fzf         # Install FZF
+make eza         # Install Eza
+make bat         # Install Bat
+```
 
-1. **Run local checks**:
-   - Syntax validation: `pwsh -Command "Get-ChildItem -Recurse *.ps1,*.psm1 | ForEach-Object { try { $null = [scriptblock]::Create((Get-Content $_.FullName -Raw)) } catch { Write-Error \"Syntax error in $($_.Name): $_\" } }"`
-   - PSScriptAnalyzer: `Install-Module PSScriptAnalyzer; Invoke-ScriptAnalyzer -Path . -Recurse`
-   - Performance test: Load time check manually
+## 🐧 Supported Distributions
 
-2. **Update documentation** (automated via GitHub Actions):
-   - Manual generation: `.\tools\generate_function_docs.ps1 -Verbose`
-   - Auto-generated every Sunday 6 AM GMT if code changes detected
-   - Or trigger manually from GitHub Actions UI
+- **Debian/Ubuntu** (apt)
+- **Fedora/RHEL** (dnf/yum)
+- **Arch Linux** (pacman)
+- **openSUSE** (zypper)
+- **Alpine Linux** (apk)
 
-3. **When adding new functions**:
-   - Place them in appropriate files under `Core/Utils/`
-   - Add descriptive comments above function definitions
+## 🎨 Features
 
-### Adding New Dependencies
+### Smart Aliases
+```bash
+# Navigation
+..          # cd ..
+...         # cd ../..
+.3          # cd ../../..
 
-When adding new tools or dependencies:
+# Modern tools
+ls          # eza with icons and git integration
+ll          # eza long format
+la          # eza all files
+cat         # bat with syntax highlighting
 
-1. Update `tools/DependencyInstaller.ps1` with the new tool definition
-2. Add installation methods for supported package managers (winget, choco, scoop)
-3. Update the documentation in `docs/INSTALLATION.md`
-4. Test the installation: `Install-Dependencies -Tool <toolname>`
+# Git shortcuts
+g           # git
+gst         # git status
+pull        # git pull
+push        # git push
+```
 
+### Powerful Functions
+```bash
+upgrade     # Update all packages (auto-detects package manager)
+cleanup     # Clean package cache and temporary files
+mkcd        # Create directory and cd into it
+extract     # Universal archive extractor
+sysinfo     # Display system information
+```
 
-## 📊 Statistics
+### Environment Variables
+- Optimized `PATH` with `~/.local/bin`
+- FZF with bat preview
+- Starship prompt configuration
+- Zoxide smart navigation
+- Language and locale settings
 
-- **Functions:** 628
-- **Aliases:** 40
-- **Categories:** 6
-- **Last Updated:** 2026-01-19 20:16:14
+## 🔧 Customization
 
+### Local Overrides
+
+Create local configuration files that won't be tracked by git:
+
+```bash
+# Custom exports
+~/.config/shell/exports.local.sh
+
+# Custom aliases
+~/.config/shell/aliases.local.sh
+
+# Custom functions
+~/.config/shell/functions.local.sh
+```
+
+### Starship Configuration
+
+Edit `~/.config/starship.toml` to customize your prompt.
+
+## 🗑️ Uninstallation
+
+```bash
+# Remove symbolic links
+make clean
+
+# Complete uninstall
+make uninstall
+```
+
+## 📝 Directory Structure
+
+```
+.
+├── install.sh              # Bootstrap installer
+├── Makefile                # Installation orchestration
+├── cleanup-legacy.sh       # Legacy PowerShell cleanup script
+├── README.md
+└── dotfiles/
+    └── shell/
+        ├── aliases.sh      # Shell aliases
+        ├── functions.sh    # Shell functions
+        └── exports.sh      # Environment variables
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🙏 Acknowledgments
+
+- Inspired by the modern CLI tools ecosystem
+- Built for cross-distribution compatibility
+- Ported from a PowerShell configuration
+
+---
+
+**Note:** This is a Linux-native rewrite of a previous PowerShell configuration. All PowerShell-specific code has been replaced with POSIX-compliant shell scripts.
