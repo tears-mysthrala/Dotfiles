@@ -53,72 +53,33 @@ deps: starship zoxide fzf eza bat
 link:
 	@echo "$(BLUE)Creating symbolic links...$(NC)"
 	@mkdir -p $(SHELL_CONFIG_DIR)
+	# Link shell modules
 	@ln -sf $(DOTFILES_DIR)/shell/aliases.sh $(SHELL_CONFIG_DIR)/aliases.sh
 	@ln -sf $(DOTFILES_DIR)/shell/functions.sh $(SHELL_CONFIG_DIR)/functions.sh
 	@ln -sf $(DOTFILES_DIR)/shell/exports.sh $(SHELL_CONFIG_DIR)/exports.sh
+	# Link entry point files
+	@ln -sf $(DOTFILES_DIR)/bashrc $(HOME)/.bashrc
+	@ln -sf $(DOTFILES_DIR)/zshrc $(HOME)/.zshrc
 	@echo "$(GREEN)✓ Symbolic links created$(NC)"
 
 config:
-	@echo "$(BLUE)Configuring shell initialization...$(NC)"
-	@$(MAKE) -s config-bash
-	@$(MAKE) -s config-zsh
-	@echo "$(GREEN)✓ Shell configuration updated$(NC)"
-
-config-bash:
-	@if [ -f $(HOME)/.bashrc ]; then \
-		if ! grep -q "# Dotfiles configuration" $(HOME)/.bashrc; then \
-			echo "" >> $(HOME)/.bashrc; \
-			echo "# Dotfiles configuration" >> $(HOME)/.bashrc; \
-			echo "for file in \$$HOME/.config/shell/{exports,aliases,functions}.sh; do" >> $(HOME)/.bashrc; \
-			echo "    [ -f \"\$$file\" ] && source \"\$$file\"" >> $(HOME)/.bashrc; \
-			echo "done" >> $(HOME)/.bashrc; \
-			echo "" >> $(HOME)/.bashrc; \
-			echo "# Starship prompt" >> $(HOME)/.bashrc; \
-			echo "command -v starship >/dev/null 2>&1 && eval \"\$$(starship init bash)\"" >> $(HOME)/.bashrc; \
-			echo "" >> $(HOME)/.bashrc; \
-			echo "# Zoxide" >> $(HOME)/.bashrc; \
-			echo "command -v zoxide >/dev/null 2>&1 && eval \"\$$(zoxide init bash)\"" >> $(HOME)/.bashrc; \
-			echo "" >> $(HOME)/.bashrc; \
-			echo "# FZF" >> $(HOME)/.bashrc; \
-			echo "[ -f ~/.fzf.bash ] && source ~/.fzf.bash" >> $(HOME)/.bashrc; \
-			echo "$(GREEN)✓ Bash configuration added$(NC)"; \
-		else \
-			echo "$(YELLOW)! Bash already configured$(NC)"; \
-		fi \
-	fi
-
-config-zsh:
-	@if [ -f $(HOME)/.zshrc ]; then \
-		if ! grep -q "# Dotfiles configuration" $(HOME)/.zshrc; then \
-			echo "" >> $(HOME)/.zshrc; \
-			echo "# Dotfiles configuration" >> $(HOME)/.zshrc; \
-			echo "for file in \$$HOME/.config/shell/{exports,aliases,functions}.sh; do" >> $(HOME)/.zshrc; \
-			echo "    [ -f \"\$$file\" ] && source \"\$$file\"" >> $(HOME)/.zshrc; \
-			echo "done" >> $(HOME)/.zshrc; \
-			echo "" >> $(HOME)/.zshrc; \
-			echo "# Starship prompt" >> $(HOME)/.zshrc; \
-			echo "command -v starship >/dev/null 2>&1 && eval \"\$$(starship init zsh)\"" >> $(HOME)/.zshrc; \
-			echo "" >> $(HOME)/.zshrc; \
-			echo "# Zoxide" >> $(HOME)/.zshrc; \
-			echo "command -v zoxide >/dev/null 2>&1 && eval \"\$$(zoxide init zsh)\"" >> $(HOME)/.zshrc; \
-			echo "" >> $(HOME)/.zshrc; \
-			echo "# FZF" >> $(HOME)/.zshrc; \
-			echo "[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh" >> $(HOME)/.zshrc; \
-			echo "$(GREEN)✓ Zsh configuration added$(NC)"; \
-		else \
-			echo "$(YELLOW)! Zsh already configured$(NC)"; \
-		fi \
-	elif [ ! -f $(HOME)/.zshrc ]; then \
-		touch $(HOME)/.zshrc; \
-		$(MAKE) -s config-zsh; \
-	fi
+	@echo "$(BLUE)Configuring Starship prompt...$(NC)"
+	@mkdir -p $(CONFIG_DIR)
+	@ln -sf $(DOTFILES_DIR)/config/starship.toml $(CONFIG_DIR)/starship.toml
+	@echo "$(GREEN)✓ Shell configuration completed$(NC)"
+	@echo "$(YELLOW)Note: Entry point files (.bashrc/.zshrc) are now linked directly$(NC)"
 
 clean:
 	@echo "$(BLUE)Removing symbolic links...$(NC)"
 	@rm -f $(SHELL_CONFIG_DIR)/aliases.sh
 	@rm -f $(SHELL_CONFIG_DIR)/functions.sh
 	@rm -f $(SHELL_CONFIG_DIR)/exports.sh
+	@rm -f $(CONFIG_DIR)/starship.toml
+	@rm -f $(HOME)/.bashrc
+	@rm -f $(HOME)/.zshrc
 	@echo "$(GREEN)✓ Symbolic links removed$(NC)"
+	@echo "$(YELLOW)Warning: Your original .bashrc/.zshrc have been removed$(NC)"
+	@echo "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
 
 uninstall: clean
 	@echo "$(YELLOW)To completely remove installed tools, run:$(NC)"
@@ -138,10 +99,6 @@ starship:
 	else \
 		mkdir -p $(LOCAL_BIN); \
 		curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir $(LOCAL_BIN) -y; \
-	fi
-	@mkdir -p $(CONFIG_DIR)
-	@if [ -f $(CURDIR)/Config/starship.toml ]; then \
-		ln -sf $(CURDIR)/Config/starship.toml $(CONFIG_DIR)/starship.toml; \
 	fi
 	@echo "$(GREEN)✓ Starship installed$(NC)"
 
