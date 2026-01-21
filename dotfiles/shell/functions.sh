@@ -311,10 +311,8 @@ benchmark() {
 # ============================================================================
 # Zoxide Integration (if available)
 # ============================================================================
-if command -v zoxide &>/dev/null; then
-    alias cd='z'
-    alias cdi='zi'
-fi
+# Note: Zoxide is initialized in bashrc/zshrc via 'eval $(zoxide init bash/zsh)'
+# which automatically provides 'z' and 'zi' commands. No manual aliases needed.
 
 # ============================================================================
 # FZF Helpers (if available)

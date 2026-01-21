@@ -39,7 +39,7 @@ alias gc='git commit'
 alias gco='git checkout'
 alias gd='git diff'
 alias gl='git log --oneline --graph --decorate'
-alias glog='git log --oneline --graph --decorate --all'
+# glog, ghead, gbr are defined as functions in functions.sh
 
 # ============================================================================
 # Docker Aliases
@@ -91,7 +91,6 @@ fi
 # File Operations
 # ============================================================================
 alias mkcd='mkdir_and_cd'  # Function defined in functions.sh
-alias touch='touch'
 
 # ============================================================================
 # Network Utilities
@@ -175,16 +174,14 @@ fi
 # ============================================================================
 # File Search Helpers
 # ============================================================================
-alias ff='ff'          # Defined in functions.sh
-alias search='search'  # Defined in functions.sh
-alias which='which_cmd'  # Defined in functions.sh
+# ff() and search() functions are available directly from functions.sh
+alias whichcmd='which_cmd'  # Use 'whichcmd' to avoid overriding native 'which'
 
 # ============================================================================
 # Git Advanced Aliases
 # ============================================================================
-alias glog='glog'      # Pretty git log (from functions.sh)
-alias ghead='ghead'    # Show git head (from functions.sh)
-alias gbr='gbr'        # Pretty git branches (from functions.sh)
+# glog(), ghead(), and gbr() functions are available directly from functions.sh
+# No aliases needed as functions are already in scope
 
 # ============================================================================
 # Clipboard integration (X11/Wayland)
