@@ -195,5 +195,5 @@ elif command -v wl-copy &>/dev/null; then
 fi
 
 # Atajos para el modo de optimización de recursos
-alias enfriar='class_mode'
-alias autoclass='class_mode'
+alias ac='class_mode'
+alias dc='class_mode_off'
