@@ -41,7 +41,9 @@ mkdir_and_cd() {
 
 # Detect package manager
 detect_package_manager() {
-  if command -v pacman &>/dev/null; then
+    if command -v yay &>/dev/null; then
+        echo "yay"
+    elif command -v pacman &>/dev/null; then
         echo "pacman"
     elif command -v apt &>/dev/null; then
         echo "apt"
@@ -60,74 +62,104 @@ detect_package_manager() {
 
 # System update (distribution-agnostic)
 upgrade() {
-    local pkg_manager
-    pkg_manager=$(detect_package_manager)
-    
     echo "🔄 Starting system upgrade..."
-    echo "Package manager: $pkg_manager"
+    echo ""
     
-    case "$pkg_manager" in
-        apt)
-            echo "📦 Updating APT packages..."
-            sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
-            ;;
-        dnf)
-            echo "📦 Updating DNF packages..."
-            sudo dnf upgrade -y && sudo dnf autoremove -y
-            ;;
-        yum)
-            echo "📦 Updating YUM packages..."
-            sudo yum update -y && sudo yum autoremove -y
-            ;;
-        pacman)
-            echo "📦 Updating Pacman packages..."
-            sudo pacman -Syu --noconfirm
-            ;;
-        zypper)
-            echo "📦 Updating Zypper packages..."
-            sudo zypper refresh && sudo zypper update -y
-            ;;
-        apk)
-            echo "📦 Updating APK packages..."
-            sudo apk update && sudo apk upgrade
-            ;;
-        *)
-            echo "⚠️  Unknown package manager"
-            return 1
-            ;;
-    esac
+    # ========================================================================
+    # Layer 1: System Base Packages
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🏗️  Layer 1: System Base Packages"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Priority: yay > pacman > apt > others
+    if command -v yay &>/dev/null; then
+        echo "📦 Updating system with yay (Arch Linux + AUR)..."
+        yay -Syu --noconfirm || echo "⚠️  yay update failed"
+    elif command -v pacman &>/dev/null; then
+        echo "📦 Updating system with pacman (Arch Linux)..."
+        sudo pacman -Syu --noconfirm || echo "⚠️  pacman update failed"
+    elif command -v apt &>/dev/null; then
+        echo "📦 Updating system with apt (Debian/Ubuntu)..."
+        sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y || echo "⚠️  apt update failed"
+    elif command -v dnf &>/dev/null; then
+        echo "📦 Updating system with dnf (Fedora)..."
+        sudo dnf upgrade -y && sudo dnf autoremove -y || echo "⚠️  dnf update failed"
+    elif command -v yum &>/dev/null; then
+        echo "📦 Updating system with yum (RHEL/CentOS)..."
+        sudo yum update -y && sudo yum autoremove -y || echo "⚠️  yum update failed"
+    elif command -v zypper &>/dev/null; then
+        echo "📦 Updating system with zypper (openSUSE)..."
+        sudo zypper refresh && sudo zypper update -y || echo "⚠️  zypper update failed"
+    elif command -v apk &>/dev/null; then
+        echo "📦 Updating system with apk (Alpine)..."
+        sudo apk update && sudo apk upgrade || echo "⚠️  apk update failed"
+    else
+        echo "⚠️  No supported package manager found"
+    fi
+    
+    echo ""
+    
+    # ========================================================================
+    # Layer 2: Universal Package Managers
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📦 Layer 2: Universal Package Managers"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Update Flatpak if installed
     if command -v flatpak &>/dev/null; then
         echo "📦 Updating Flatpak packages..."
-        flatpak update -y
+        flatpak update -y || echo "⚠️  Flatpak update failed"
+    else
+        echo "⏭️  Flatpak not installed, skipping..."
     fi
     
     # Update Snap if installed
     if command -v snap &>/dev/null; then
         echo "📦 Updating Snap packages..."
-        sudo snap refresh
+        sudo snap refresh || echo "⚠️  Snap update failed"
+    else
+        echo "⏭️  Snap not installed, skipping..."
     fi
+    
+    echo ""
+    
+    # ========================================================================
+    # Layer 3: Development Tools
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔧 Layer 3: Development Tools"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Update NPM globals
     if command -v npm &>/dev/null; then
         echo "📦 Updating NPM global packages..."
-        npm update -g
-    fi
-    
-    # Update Cargo packages
-    if command -v cargo &>/dev/null && command -v cargo-install-update &>/dev/null; then
-        echo "📦 Updating Cargo packages..."
-        cargo install-update -a
+        npm update -g || echo "⚠️  NPM update failed"
+    else
+        echo "⏭️  NPM not installed, skipping..."
     fi
     
     # Update Pipx packages
     if command -v pipx &>/dev/null; then
         echo "📦 Updating Pipx packages..."
-        pipx upgrade-all
+        pipx upgrade-all || echo "⚠️  Pipx update failed"
+    else
+        echo "⏭️  Pipx not installed, skipping..."
     fi
     
+    # Update Cargo packages
+    if command -v cargo &>/dev/null && command -v cargo-install-update &>/dev/null; then
+        echo "📦 Updating Cargo packages..."
+        cargo install-update -a || echo "⚠️  Cargo update failed"
+    else
+        echo "⏭️  Cargo or cargo-install-update not installed, skipping..."
+    fi
+    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "✅ System upgrade completed!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 # ============================================================================
@@ -135,51 +167,102 @@ upgrade() {
 # ============================================================================
 cleanup() {
     echo "🧹 Starting system cleanup..."
+    echo ""
     
-    local pkg_manager
-    pkg_manager=$(detect_package_manager)
+    # ========================================================================
+    # Package Manager Cache Cleanup
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🗑️  Package Manager Cache Cleanup"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
-    case "$pkg_manager" in
-        apt)
-            echo "🗑️  Cleaning APT cache..."
-            sudo apt autoremove -y
-            sudo apt clean
-            ;;
-        dnf)
-            echo "🗑️  Cleaning DNF cache..."
-            sudo dnf autoremove -y
-            sudo dnf clean all
-            ;;
-        pacman)
-            echo "🗑️  Cleaning Pacman cache..."
-            sudo pacman -Sc --noconfirm
-            if command -v paccache &>/dev/null; then
-                paccache -rk 2
-            fi
-            ;;
-        *)
-            echo "⚠️  Cleanup not configured for this package manager"
-            ;;
-    esac
+    # Clean yay/pacman cache (Arch Linux)
+    if command -v yay &>/dev/null; then
+        echo "🗑️  Cleaning yay cache..."
+        yay -Sc --noconfirm || echo "⚠️  yay cache cleanup failed"
+    elif command -v pacman &>/dev/null; then
+        echo "🗑️  Cleaning pacman cache..."
+        sudo pacman -Sc --noconfirm || echo "⚠️  pacman cache cleanup failed"
+    fi
+    
+    # Clean old package versions if paccache is available (Arch)
+    if (command -v yay &>/dev/null || command -v pacman &>/dev/null) && command -v paccache &>/dev/null; then
+        echo "🗑️  Keeping last 2 package versions..."
+        sudo paccache -rk 2 || echo "⚠️  paccache cleanup failed"
+    fi
+    
+    # Clean apt cache (Debian/Ubuntu)
+    if command -v apt &>/dev/null; then
+        echo "🗑️  Cleaning apt cache..."
+        sudo apt autoremove -y && sudo apt clean || echo "⚠️  apt cache cleanup failed"
+    fi
+    
+    # Clean dnf cache (Fedora)
+    if command -v dnf &>/dev/null; then
+        echo "🗑️  Cleaning dnf cache..."
+        sudo dnf autoremove -y && sudo dnf clean all || echo "⚠️  dnf cache cleanup failed"
+    fi
+    
+    echo ""
+    
+    # ========================================================================
+    # Universal Package Managers Cleanup
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📦 Universal Package Managers Cleanup"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Clean Flatpak unused packages
+    if command -v flatpak &>/dev/null; then
+        echo "🗑️  Removing unused Flatpak packages..."
+        flatpak remove --unused -y || echo "⚠️  Flatpak cleanup failed"
+    else
+        echo "⏭️  Flatpak not installed, skipping..."
+    fi
+    
+    echo ""
+    
+    # ========================================================================
+    # System Files Cleanup
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📁 System Files Cleanup"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Clean temporary files
     echo "🗑️  Cleaning temporary files..."
-    sudo rm -rf /tmp/*
-    rm -rf ~/.cache/thumbnails/*
+    sudo rm -rf /tmp/* 2>/dev/null || echo "⚠️  Some temporary files could not be removed"
+    rm -rf ~/.cache/thumbnails/* 2>/dev/null || true
     
     # Clean journal logs (keep last 3 days)
     if command -v journalctl &>/dev/null; then
-        echo "🗑️  Cleaning journal logs..."
-        sudo journalctl --vacuum-time=3d
+        echo "🗑️  Cleaning journal logs (keeping last 3 days)..."
+        sudo journalctl --vacuum-time=3d || echo "⚠️  Journal cleanup failed"
+    else
+        echo "⏭️  journalctl not available, skipping..."
     fi
+    
+    echo ""
+    
+    # ========================================================================
+    # Docker Cleanup
+    # ========================================================================
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🐳 Docker Cleanup"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Clean Docker if installed
     if command -v docker &>/dev/null; then
         echo "🗑️  Cleaning Docker resources..."
-        docker system prune -af --volumes
+        docker system prune -af --volumes 2>/dev/null || echo "⚠️  Docker cleanup failed (may require docker daemon running)"
+    else
+        echo "⏭️  Docker not installed, skipping..."
     fi
     
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "✅ Cleanup completed!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 # ============================================================================
@@ -222,7 +305,12 @@ extract() {
 # Process Management
 # ============================================================================
 psgrep() {
-    ps aux | grep -v grep | grep -i -e VSZ -e "$@"
+    # Use pgrep if available for better performance
+    if command -v pgrep &>/dev/null; then
+        pgrep -af "$@"
+    else
+        ps aux | grep -v grep | grep -i -e VSZ -e "$@"
+    fi
 }
 
 killport() {
@@ -303,7 +391,7 @@ sysinfo() {
 benchmark() {
     local iterations="${2:-10}"
     echo "Running '$1' $iterations times..."
-    time for i in $(seq 1 "$iterations"); do
+    time for _ in $(seq 1 "$iterations"); do
         eval "$1" > /dev/null 2>&1
     done
 }
@@ -337,7 +425,7 @@ if command -v fzf &>/dev/null; then
     fgco() {
         local branch
         branch=$(git branch --all | grep -v HEAD | sed 's/^..//' | fzf +m) &&
-        git checkout "$(echo "$branch" | sed 's#remotes/[^/]*/##')"
+        git checkout "${branch#remotes/*/}"
     }
 fi
 
@@ -356,12 +444,9 @@ if command -v chezmoi &>/dev/null; then
     cmc() {
         local msg="$*"
         if [ -n "$msg" ]; then
-            chezmoi git commit -m "$msg"
+            chezmoi git commit -m "$msg" && chezmoi git push
         else
-            chezmoi git commit
-        fi
-        if [ $? -eq 0 ]; then
-            chezmoi git push
+            chezmoi git commit && chezmoi git push
         fi
     }
     

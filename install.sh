@@ -78,7 +78,7 @@ check_root() {
 
 # Install dependencies based on package manager
 install_deps() {
-    local pkg_manager="$1"
+    pkg_manager="$1"
     
     print_info "Installing make and git..."
     
