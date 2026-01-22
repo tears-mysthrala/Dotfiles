@@ -196,4 +196,4 @@ fi
 
 # Atajos para el modo de optimización de recursos
 alias ac='class_mode'
-alias dc='class_mode_off'
+alias rc='class_mode_off'
