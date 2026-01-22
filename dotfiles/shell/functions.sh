@@ -41,14 +41,14 @@ mkdir_and_cd() {
 
 # Detect package manager
 detect_package_manager() {
-    if command -v apt &>/dev/null; then
+  if command -v pacman &>/dev/null; then
+        echo "pacman"
+    elif command -v apt &>/dev/null; then
         echo "apt"
     elif command -v dnf &>/dev/null; then
         echo "dnf"
     elif command -v yum &>/dev/null; then
         echo "yum"
-    elif command -v pacman &>/dev/null; then
-        echo "pacman"
     elif command -v zypper &>/dev/null; then
         echo "zypper"
     elif command -v apk &>/dev/null; then
@@ -445,6 +445,8 @@ fi
 # ============================================================================
 # Advanced File Search (Ported from SearchUtils.ps1)
 # ============================================================================
+# --- Añade esta línea justo antes de la función ---
+unalias ff 2>/dev/null
 
 # Find files by pattern
 ff() {
@@ -453,7 +455,7 @@ ff() {
     local depth="${3:-3}"
     
     if command -v fd &>/dev/null; then
-        fd --type f --max-depth "$depth" "$pattern" "$path"
+        fd --type f --max-depth "$depth" --glob "$pattern" "$path"
     else
         find "$path" -maxdepth "$depth" -type f -name "$pattern" 2>/dev/null
     fi
