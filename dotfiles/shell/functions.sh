@@ -180,9 +180,11 @@ cleanup() {
     if command -v yay &>/dev/null; then
         echo "🗑️  Cleaning yay cache..."
         yay -Sc --noconfirm || echo "⚠️  yay cache cleanup failed"
+        sudo rm -rf /var/cache/pacman/pkg/download-* 2>/dev/null
     elif command -v pacman &>/dev/null; then
         echo "🗑️  Cleaning pacman cache..."
         sudo pacman -Sc --noconfirm || echo "⚠️  pacman cache cleanup failed"
+        sudo rm -rf /var/cache/pacman/pkg/download-* 2>/dev/null
     fi
     
     # Clean old package versions if paccache is available (Arch)
