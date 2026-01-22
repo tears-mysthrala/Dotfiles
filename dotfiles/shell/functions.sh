@@ -180,17 +180,15 @@ cleanup() {
     if command -v yay &>/dev/null; then
         echo "🗑️  Cleaning yay cache..."
         yay -Sc --noconfirm
-        if command -v paccache &>/dev/null; then
-            echo "🗑️  Keeping last 2 package versions..."
-            paccache -rk 2
-        fi
     elif command -v pacman &>/dev/null; then
         echo "🗑️  Cleaning pacman cache..."
         sudo pacman -Sc --noconfirm
-        if command -v paccache &>/dev/null; then
-            echo "🗑️  Keeping last 2 package versions..."
-            paccache -rk 2
-        fi
+    fi
+    
+    # Clean old package versions if paccache is available (Arch)
+    if (command -v yay &>/dev/null || command -v pacman &>/dev/null) && command -v paccache &>/dev/null; then
+        echo "🗑️  Keeping last 2 package versions..."
+        paccache -rk 2
     fi
     
     # Clean apt cache (Debian/Ubuntu)
