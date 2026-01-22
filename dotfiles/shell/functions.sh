@@ -654,3 +654,17 @@ class_mode() {
     echo "✅ Entorno optimizado para compilación pesada."
     echo "💡 Nota: Se ha reservado 1 núcleo de CPU para mantener la fluidez del sistema."
 }
+class_mode_off() {
+    echo "🔥 Desactivando modo clase. Restaurando potencia total..."
+    
+    # 1. Restaurar hilos de compilación (usar todos los núcleos por defecto)
+    unset MAKEFLAGS
+    unset NINJA_JOBS
+    
+    # 2. Quitar el bloqueo de auto-cpufreq
+    if command -v auto-cpufreq >/dev/null 2>&1; then
+        sudo auto-cpufreq --force reset
+    fi
+
+    echo "🚀 Sistema en modo normal (Máximo rendimiento disponible)."
+}
