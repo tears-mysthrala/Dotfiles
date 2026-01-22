@@ -193,3 +193,7 @@ elif command -v wl-copy &>/dev/null; then
     alias pbcopy='wl-copy'
     alias pbpaste='wl-paste'
 fi
+
+# Atajos para el modo de optimización de recursos
+alias enfriar='class_mode'
+alias autoclass='class_mode'
