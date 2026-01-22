@@ -630,3 +630,23 @@ if command -v fzf &>/dev/null; then
     
     alias fo='fzf_open'
 fi
+# Optimización para hardware limitado (Clase / AIO)
+class_mode() {
+    echo "❄️  Activando modo enfriamiento y ahorro de RAM..."
+    
+    # 1. Limpiar caches antes de empezar
+    sync && sudo sysctl -w vm.drop_caches=3
+    
+    # 2. Limitar threads de compilación si vas a usar Make o Ninja
+    # Si tu CPU tiene 4 núcleos, esto limitará a 3 para dejar uno libre al sistema
+    export MAKEFLAGS="-j$(($(nproc) - 1))"
+    export NINJA_JOBS="$(($(nproc) - 1))"
+    
+    # 3. Forzar perfil de energía 'balanced' para evitar picos térmicos
+    if command -v auto-cpufreq &>/dev/null; then
+        sudo auto-cpufreq --force balanced
+    fi
+
+    echo "✅ Entorno optimizado para compilación pesada."
+    echo "💡 Nota: Se ha reservado 1 núcleo de CPU para mantener la fluidez del sistema."
+}
