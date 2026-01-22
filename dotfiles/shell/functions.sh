@@ -384,6 +384,10 @@ sysinfo() {
     if command -v lsb_release &>/dev/null; then
         echo "Distribution:   $(lsb_release -d | cut -f2)"
     fi
+    if command -v sensors >/dev/null 2>&1; then
+        TEMP=$(sensors | grep 'Package id 0' | awk '{print $4}')
+        echo "CPU Temp:       $TEMP"
+    fi
     echo "======================================"
 }
 
