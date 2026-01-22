@@ -188,7 +188,7 @@ cleanup() {
     # Clean old package versions if paccache is available (Arch)
     if (command -v yay &>/dev/null || command -v pacman &>/dev/null) && command -v paccache &>/dev/null; then
         echo "🗑️  Keeping last 2 package versions..."
-        paccache -rk 2
+        sudo paccache -rk 2
     fi
     
     # Clean apt cache (Debian/Ubuntu)
