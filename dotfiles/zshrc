@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 # ============================================================================
-# Zsh Configuration - Entry Point (OPTIMIZED)
+# Zsh Configuration - Entry Point (OPTIMIZED v2)
 # ============================================================================
 
 # ============================================================================
@@ -29,17 +29,23 @@ for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
 done
 
 # ============================================================================
-# Tool Initialization
+# Load Optimized Tool Initializers
+# ============================================================================
+[ -f "$HOME/.config/shell/optimized-tools.sh" ] && source "$HOME/.config/shell/optimized-tools.sh"
+
+# ============================================================================
+# Tool Initialization (Optimized)
 # ============================================================================
 
-# Starship Prompt
+# Starship Prompt - cached init for faster startup
 if command -v starship >/dev/null 2>&1; then
-    eval "$(starship init zsh)"
+    init_starship_optimized zsh
 fi
 
-# Zoxide (smart cd replacement)
+# Zoxide - lazy loaded (only initializes when you use 'z' for first time)
+# This saves ~50-100ms on every new shell
 if command -v zoxide >/dev/null 2>&1; then
-    eval "$(zoxide init zsh)"
+    init_zoxide_lazy zsh
 fi
 
 # FZF (fuzzy finder) - use native shell integration if available

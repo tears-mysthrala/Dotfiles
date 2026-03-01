@@ -80,10 +80,10 @@ export XDG_STATE_HOME="$HOME/.local/state"
 # Tool Configurations
 # ============================================================================
 
-# FZF Configuration
-if command -v fzf &>/dev/null; then
-    # Use fd for file listing if available
-    if command -v fd &>/dev/null; then
+# FZF Configuration (fast path detection)
+if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || type -P fzf &>/dev/null; then
+    # Use fd for file listing if available (check common paths first for speed)
+    if [ -x "$HOME/.local/bin/fd" ]; then
         export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
         export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
         export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
@@ -112,20 +112,20 @@ if command -v fzf &>/dev/null; then
         --bind ctrl-e:toggle-preview
     '
     
-    # Add bat preview if available
-    if command -v bat &>/dev/null; then
+    # Add bat preview if available (check common paths first)
+    if [ -x "$HOME/.local/bin/bat" ]; then
         export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --preview 'bat --style=numbers --color=always --line-range :500 {}'"
     fi
 fi
 
-# Bat (better cat)
-if command -v bat &>/dev/null; then
+# Bat (better cat) - check common paths first for speed
+if [ -x "$HOME/.local/bin/bat" ] || [ -x "/usr/bin/bat" ]; then
     export BAT_THEME="Nord"
     export BAT_STYLE="numbers,changes,header"
 fi
 
-# Ripgrep
-if command -v rg &>/dev/null; then
+# Ripgrep - check common paths first
+if [ -x "$HOME/.local/bin/rg" ] || [ -x "/usr/bin/rg" ]; then
     export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/ripgreprc"
 fi
 
@@ -134,7 +134,7 @@ export LESS="-R -F -X"
 export LESSHISTFILE="-"
 
 # Man pages colors (only if bat is available)
-if command -v bat &>/dev/null; then
+if [ -x "$HOME/.local/bin/bat" ] || [ -x "/usr/bin/bat" ]; then
     export MANPAGER="sh -c 'col -bx | bat -l man -p'"
     export MANROFFOPT="-c"
 fi

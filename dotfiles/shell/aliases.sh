@@ -1,8 +1,28 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Shell Aliases - Linux Native (Ported from PowerShell unified_aliases.ps1)
+# Shell Aliases - Linux Native (OPTIMIZED v2)
 # Compatible with: Bash 4.0+, Zsh 5.0+
 # ============================================================================
+# OPTIMIZATION: Fast-path detection for common tools, lazy-load for others
+
+# ============================================================================
+# Fast Detection - Only check common/fast tools (skips Windows PATH scan)
+# ============================================================================
+__has_fast() {
+    case ":${__FAST_CMDS}:" in
+        *:"$1":*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Detectar herramientas comunes (rápidas - verificar paths comunes primero)
+__FAST_CMDS=""
+for cmd in bat eza fd rg npm python3; do
+    # Check common paths first (much faster than type -P with Windows PATH)
+    if [ -x "$HOME/.local/bin/$cmd" ] || [ -x "/usr/bin/$cmd" ]; then
+        __FAST_CMDS="$__FAST_CMDS:$cmd:"
+    fi
+done
 
 # ============================================================================
 # Navigation Shortcuts
@@ -14,7 +34,7 @@ alias .4='cd ../../../..'
 alias .5='cd ../../../../..'
 
 # ============================================================================
-# Editor Detection (lazy-loaded via function in functions.sh)
+# Editor Detection
 # ============================================================================
 alias v='editor'
 alias e='${VISUAL:-${EDITOR:-nano}}'
@@ -39,7 +59,6 @@ alias gc='git commit'
 alias gco='git checkout'
 alias gd='git diff'
 alias gl='git log --oneline --graph --decorate'
-# glog, ghead, gbr are defined as functions in functions.sh
 
 # ============================================================================
 # Docker Aliases
@@ -48,40 +67,32 @@ alias d='docker'
 alias dc='docker-compose'
 
 # ============================================================================
-# Modern Tool Replacements (Conditional)
+# Modern Tool Replacements (Fast detection)
 # ============================================================================
 
-# Lazygit
-if command -v lazygit &>/dev/null; then
-    alias lg='lazygit'
-fi
-
 # Bat (better cat)
-if command -v bat &>/dev/null; then
+if __has_fast bat; then
     alias cat='bat --paging=never --style=plain'
     alias catt='bat --paging=always'
 fi
 
 # Eza (better ls)
-if command -v eza &>/dev/null; then
+if __has_fast eza; then
     alias ls='eza --icons --git --color=always --group-directories-first'
     alias ll='eza --icons --git --color=always --group-directories-first --long --header'
     alias la='eza --icons --git --color=always --group-directories-first --all'
     alias lt='eza --icons --git --color=always --group-directories-first --long --header --tree --sort=name'
 else
-    # Fallback to traditional ls with colors
     alias ls='ls --color=auto'
     alias ll='ls -lh --color=auto'
     alias la='ls -lAh --color=auto'
 fi
 
 # Fd (better find)
-if command -v fd &>/dev/null; then
-    alias find='fd'
-fi
+__has_fast fd && alias find='fd'
 
 # Ripgrep (better grep)
-if command -v rg &>/dev/null; then
+if __has_fast rg; then
     alias grep='rg'
 else
     alias grep='grep --color=auto'
@@ -90,7 +101,7 @@ fi
 # ============================================================================
 # File Operations
 # ============================================================================
-alias mkcd='mkdir_and_cd'  # Function defined in functions.sh
+alias mkcd='mkdir_and_cd'
 
 # ============================================================================
 # Network Utilities
@@ -102,12 +113,7 @@ alias myip='curl -s http://ifconfig.me/ip'
 # System Information
 # ============================================================================
 alias uptime='uptime -p'
-alias ports='netstat -tulanp'
-
-# ============================================================================
-# Package Manager Shortcuts (Distribution-agnostic)
-# ============================================================================
-# Defined dynamically in functions.sh based on detected distro
+alias ports='netstat -tulanp 2>/dev/null || ss -tulanp'
 
 # ============================================================================
 # Archive Extraction
@@ -118,16 +124,14 @@ alias untar='tar -xvf'
 # ============================================================================
 # Development Tools
 # ============================================================================
-# NPM
-if command -v npm &>/dev/null; then
+if __has_fast npm; then
     alias ni='npm install'
     alias nid='npm install --save-dev'
     alias nu='npm update'
     alias nr='npm run'
 fi
 
-# Python
-if command -v python3 &>/dev/null; then
+if __has_fast python3; then
     alias py='python3'
     alias pip='python3 -m pip'
 fi
@@ -145,55 +149,114 @@ alias rm='rm -i'
 alias cp='cp -i'
 alias mv='mv -i'
 
-# To bypass aliases, use: \rm, \cp, \mv
+# ============================================================================
+# Disk usage (lazy-loaded aliases)
+# ============================================================================
+# These check on first use to avoid slow Windows PATH lookups
+df() {
+    unalias df 2>/dev/null || true
+    if type -P duf &>/dev/null; then
+        alias df='duf'
+    else
+        alias df='df -h'
+    fi
+    df "$@"
+}
+
+du() {
+    unalias du 2>/dev/null || true
+    if type -P dust &>/dev/null; then
+        alias du='dust'
+    else
+        alias du='du -h'
+    fi
+    du "$@"
+}
 
 # ============================================================================
-# Disk usage
+# Process management (lazy-loaded)
 # ============================================================================
-if command -v duf &>/dev/null; then
-    alias df='duf'
-else
-    alias df='df -h'
-fi
+htop() {
+    unalias htop top 2>/dev/null || true
+    unset -f htop top 2>/dev/null || true
+    if type -P btop &>/dev/null; then
+        alias htop='btop'
+    elif type -P htop &>/dev/null; then
+        alias top='htop'
+    fi
+    htop "$@"
+}
 
-if command -v dust &>/dev/null; then
-    alias du='dust'
-else
-    alias du='du -h'
-fi
+top() {
+    unalias top htop 2>/dev/null || true
+    unset -f top htop 2>/dev/null || true
+    if type -P btop &>/dev/null; then
+        alias htop='btop'
+        btop "$@"
+    elif type -P htop &>/dev/null; then
+        alias top='htop'
+        htop "$@"
+    else
+        command top "$@"
+    fi
+}
 
 # ============================================================================
-# Process management
+# Lazygit (lazy-loaded)
 # ============================================================================
-if command -v btop &>/dev/null; then
-    alias htop='btop'
-elif command -v htop &>/dev/null; then
-    alias top='htop'
-fi
+lg() {
+    unset -f lg 2>/dev/null || true
+    if type -P lazygit &>/dev/null; then
+        alias lg='lazygit'
+        lazygit "$@"
+    else
+        echo "lazygit not installed" >&2
+        return 1
+    fi
+}
 
 # ============================================================================
 # File Search Helpers
 # ============================================================================
-# ff() and search() functions are available directly from functions.sh
-alias whichcmd='which_cmd'  # Use 'whichcmd' to avoid overriding native 'which'
+alias whichcmd='which_cmd'
 
 # ============================================================================
-# Git Advanced Aliases
+# Clipboard integration (lazy-loaded)
 # ============================================================================
-# glog(), ghead(), and gbr() functions are available directly from functions.sh
-# No aliases needed as functions are already in scope
+pbcopy() {
+    unset -f pbcopy pbpaste 2>/dev/null || true
+    if type -P xclip &>/dev/null; then
+        alias pbcopy='xclip -selection clipboard'
+        alias pbpaste='xclip -selection clipboard -o'
+        xclip -selection clipboard "$@"
+    elif type -P wl-copy &>/dev/null; then
+        alias pbcopy='wl-copy'
+        alias pbpaste='wl-paste'
+        wl-copy "$@"
+    else
+        echo "No clipboard tool found (xclip or wl-copy)" >&2
+        return 1
+    fi
+}
+
+pbpaste() {
+    unset -f pbcopy pbpaste 2>/dev/null || true
+    if type -P xclip &>/dev/null; then
+        alias pbcopy='xclip -selection clipboard'
+        alias pbpaste='xclip -selection clipboard -o'
+        xclip -selection clipboard -o
+    elif type -P wl-copy &>/dev/null; then
+        alias pbcopy='wl-copy'
+        alias pbpaste='wl-paste'
+        wl-paste
+    else
+        echo "No clipboard tool found (xclip or wl-copy)" >&2
+        return 1
+    fi
+}
 
 # ============================================================================
-# Clipboard integration (X11/Wayland)
+# Cleanup
 # ============================================================================
-if command -v xclip &>/dev/null; then
-    alias pbcopy='xclip -selection clipboard'
-    alias pbpaste='xclip -selection clipboard -o'
-elif command -v wl-copy &>/dev/null; then
-    alias pbcopy='wl-copy'
-    alias pbpaste='wl-paste'
-fi
-
-# Atajos para el modo de optimización de recursos
-alias ac='class_mode'
-alias rc='class_mode_off'
+unset -f __has_fast 2>/dev/null || true
+unset __FAST_CMDS 2>/dev/null || true
