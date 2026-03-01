@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Environment Variables - Linux Native
+# Environment Variables - Linux Native (OPTIMIZED)
 # Compatible with: Bash 4.0+, Zsh 5.0+
 # ============================================================================
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+# Prepend to PATH only if not already present (avoids duplicates)
+_path_prepend() {
+    case ":${PATH}:" in
+        *:"$1":*) ;;
+        *) PATH="$1${PATH:+:$PATH}" ;;
+    esac
+}
 
 # ============================================================================
 # Editor Configuration
@@ -23,32 +34,47 @@ export LC_ALL="en_US.UTF-8"
 export LANGUAGE="en_US.UTF-8"
 
 # ============================================================================
-# Path Configuration
+# Path Configuration (Consolidated - single assignment)
 # ============================================================================
-# Add user binaries to PATH
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/bin:$PATH"
+# User binaries
+_path_prepend "$HOME/.local/bin"
+_path_prepend "$HOME/bin"
+
+# Development tools
+_path_prepend "$HOME/.opencode/bin"
+_path_prepend "$HOME/.npm-global/bin"
 
 # Cargo (Rust)
 if [ -d "$HOME/.cargo/bin" ]; then
-    export PATH="$HOME/.cargo/bin:$PATH"
+    _path_prepend "$HOME/.cargo/bin"
 fi
 
 # Go
 if [ -d "$HOME/go/bin" ]; then
-    export PATH="$HOME/go/bin:$PATH"
+    _path_prepend "$HOME/go/bin"
     export GOPATH="$HOME/go"
 fi
 
-# Node Version Manager (if installed)
-if [ -d "$HOME/.nvm" ]; then
-    export NVM_DIR="$HOME/.nvm"
+# Homebrew (Linuxbrew)
+if [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash 2>/dev/null || true)"
 fi
+
+# Node Version Manager (lazy-loaded, see functions.sh for nvm function)
+export NVM_DIR="$HOME/.nvm"
 
 # Python local packages
 if [ -d "$HOME/.local/share/python/bin" ]; then
-    export PATH="$HOME/.local/share/python/bin:$PATH"
+    _path_prepend "$HOME/.local/share/python/bin"
 fi
+
+# ============================================================================
+# XDG Base Directory Specification
+# ============================================================================
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_STATE_HOME="$HOME/.local/state"
 
 # ============================================================================
 # Tool Configurations
@@ -107,9 +133,11 @@ fi
 export LESS="-R -F -X"
 export LESSHISTFILE="-"
 
-# Man pages colors
-export MANPAGER="sh -c 'col -bx | bat -l man -p'"
-export MANROFFOPT="-c"
+# Man pages colors (only if bat is available)
+if command -v bat &>/dev/null; then
+    export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+    export MANROFFOPT="-c"
+fi
 
 # ============================================================================
 # History Configuration
@@ -120,74 +148,61 @@ export HISTCONTROL=ignoreboth:erasedups
 export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"
 export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
 
-# Append to history file, don't overwrite it
-shopt -s histappend 2>/dev/null || true
-
-# Save multi-line commands as one command
-shopt -s cmdhist 2>/dev/null || true
-
 # ============================================================================
-# Shell Options (Bash)
+# Shell Options (Bash-only)
 # ============================================================================
-# Check window size after each command
-shopt -s checkwinsize 2>/dev/null || true
-
-# Correct minor errors in cd paths
-shopt -s cdspell 2>/dev/null || true
-
-# Enable recursive globbing with **
-shopt -s globstar 2>/dev/null || true
-
-# Case-insensitive globbing
-shopt -s nocaseglob 2>/dev/null || true
+if [ -n "$BASH_VERSION" ]; then
+    # Append to history file, don't overwrite it
+    shopt -s histappend 2>/dev/null || true
+    # Save multi-line commands as one command
+    shopt -s cmdhist 2>/dev/null || true
+    # Check window size after each command
+    shopt -s checkwinsize 2>/dev/null || true
+    # Correct minor errors in cd paths
+    shopt -s cdspell 2>/dev/null || true
+    # Enable recursive globbing with **
+    shopt -s globstar 2>/dev/null || true
+    # Case-insensitive globbing
+    shopt -s nocaseglob 2>/dev/null || true
+fi
 
 # ============================================================================
 # Development Tools
 # ============================================================================
-
-# Node.js
 export NODE_OPTIONS="--max-old-space-size=4096"
-
-# Python
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONUNBUFFERED=1
 export PYTHONIOENCODING="utf-8"
-
-# Pip
 export PIP_REQUIRE_VIRTUALENV=false
-
-# Docker
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
 # ============================================================================
-# XDG Base Directory Specification
+# SSH Agent (Optimized - singleton pattern)
 # ============================================================================
-export XDG_CONFIG_HOME="$HOME/.config"
-export XDG_DATA_HOME="$HOME/.local/share"
-export XDG_CACHE_HOME="$HOME/.cache"
-export XDG_STATE_HOME="$HOME/.local/state"
+# Use a persistent socket to avoid starting a new agent per shell
+SSH_AGENT_ENV="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-${USER}.env"
 
-# ============================================================================
-# Application-specific configurations
-# ============================================================================
-
-# GPG TTY (for git commit signing)
-export GPG_TTY=$(tty)
-
-# SSH Agent
 if [ -z "$SSH_AUTH_SOCK" ]; then
-    eval "$(ssh-agent -s)" >/dev/null 2>&1
+    if [ -f "$SSH_AGENT_ENV" ]; then
+        # shellcheck source=/dev/null
+        . "$SSH_AGENT_ENV" >/dev/null 2>&1
+        # Verify agent is still alive
+        if ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
+            rm -f "$SSH_AGENT_ENV"
+            eval "$(ssh-agent -s)" > "$SSH_AGENT_ENV" 2>/dev/null
+        fi
+    else
+        eval "$(ssh-agent -s)" > "$SSH_AGENT_ENV" 2>/dev/null
+    fi
 fi
+export GPG_TTY=$(tty)
 
 # ============================================================================
 # Color Support
 # ============================================================================
-# Enable colored output
 export CLICOLOR=1
 export COLORTERM=truecolor
-
-# GCC colored output
 export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
 
 # ============================================================================
@@ -200,14 +215,14 @@ else
 fi
 
 # ============================================================================
-# Starship Prompt (if installed)
+# Starship Prompt
 # ============================================================================
 if command -v starship &>/dev/null; then
     export STARSHIP_CONFIG="$HOME/.config/starship.toml"
 fi
 
 # ============================================================================
-# Zoxide (if installed)
+# Zoxide
 # ============================================================================
 if command -v zoxide &>/dev/null; then
     export _ZO_DATA_DIR="$HOME/.local/share/zoxide"
@@ -215,9 +230,14 @@ if command -v zoxide &>/dev/null; then
 fi
 
 # ============================================================================
+# Clean up helper function
+# ============================================================================
+unset -f _path_prepend 2>/dev/null || true
+
+# ============================================================================
 # Custom User Configurations
 # ============================================================================
-# Load custom exports if they exist
 if [ -f "$HOME/.config/shell/exports.local.sh" ]; then
+    # shellcheck source=/dev/null
     source "$HOME/.config/shell/exports.local.sh"
 fi

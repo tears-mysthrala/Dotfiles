@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Shell Functions - Linux Native (Ported from PowerShell modules)
+# Shell Functions - Linux Native (OPTIMIZED)
 # Compatible with: Bash 4.0+, Zsh 5.0+
 # ============================================================================
 
@@ -23,7 +23,7 @@ editor() {
     if [ -n "$EDITOR" ]; then
         "$EDITOR" "$@"
     else
-        echo "No suitable editor found"
+        echo "No suitable editor found" >&2
         return 1
     fi
 }
@@ -31,15 +31,51 @@ editor() {
 # ============================================================================
 # Navigation Helpers
 # ============================================================================
-mkdir_and_cd() {
+mkcd() {
     mkdir -p "$1" && cd "$1" || return 1
+}
+
+# ============================================================================
+# NVM Lazy Loading (significant speed improvement)
+# ============================================================================
+nvm() {
+    unset -f nvm node npm npx 2>/dev/null || true
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+    nvm "$@"
+}
+
+# Lazy load node, npm, npx to trigger NVM loading
+node() {
+    unset -f node npm npx 2>/dev/null || true
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+    node "$@"
+}
+
+npm() {
+    unset -f node npm npx 2>/dev/null || true
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+    npm "$@"
+}
+
+npx() {
+    unset -f node npm npx 2>/dev/null || true
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    # shellcheck source=/dev/null
+    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+    npx "$@"
 }
 
 # ============================================================================
 # System Update Functions (Multi-distro support)
 # ============================================================================
-
-# Detect package manager
 detect_package_manager() {
     if command -v apt &>/dev/null; then
         echo "apt"
@@ -58,7 +94,6 @@ detect_package_manager() {
     fi
 }
 
-# System update (distribution-agnostic)
 upgrade() {
     local pkg_manager
     pkg_manager=$(detect_package_manager)
@@ -164,8 +199,7 @@ cleanup() {
     
     # Clean temporary files
     echo "🗑️  Cleaning temporary files..."
-    sudo rm -rf /tmp/*
-    rm -rf ~/.cache/thumbnails/*
+    rm -rf ~/.cache/thumbnails/* 2>/dev/null || true
     
     # Clean journal logs (keep last 3 days)
     if command -v journalctl &>/dev/null; then
@@ -185,11 +219,11 @@ cleanup() {
 # ============================================================================
 # Network Utilities
 # ============================================================================
-get_public_ip() {
+pubip() {
     curl -s http://ifconfig.me/ip
 }
 
-get_local_ip() {
+localip() {
     ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v 127.0.0.1
 }
 
@@ -228,11 +262,11 @@ psgrep() {
 killport() {
     local port="$1"
     if [ -z "$port" ]; then
-        echo "Usage: killport <port>"
+        echo "Usage: killport <port>" >&2
         return 1
     fi
     local pid
-    pid=$(lsof -ti:"$port")
+    pid=$(lsof -ti:"$port" 2>/dev/null)
     if [ -n "$pid" ]; then
         kill -9 "$pid"
         echo "Killed process on port $port (PID: $pid)"
@@ -248,8 +282,24 @@ gitignore() {
     curl -sL "https://www.gitignore.io/api/$*"
 }
 
-git_clone_cd() {
+gclonecd() {
     git clone "$1" && cd "$(basename "$1" .git)" || return 1
+}
+
+# Pretty git log
+glog() {
+    git log --graph --pretty=format:"%C(yellow)%h%Creset %C(green)(%ar)%Creset %C(green)%as%Creset %C(blue)<%an>%Creset%C(red)%d%Creset - %s" --no-show-signature "$@"
+}
+
+# Show git head
+ghead() {
+    git log --graph --pretty=format:"%C(yellow)%h%Creset %C(green)(%ar)%Creset %C(blue)<%an>%Creset%C(red)%d%Creset - %s" --no-show-signature -1
+    git show -p --pretty="tformat:"
+}
+
+# Pretty git branch
+gbr() {
+    git branch -v --color=always --sort=-committerdate "$@"
 }
 
 # ============================================================================
@@ -279,175 +329,6 @@ fd_dir() {
     fi
 }
 
-# ============================================================================
-# System Information
-# ============================================================================
-sysinfo() {
-    echo "======================================"
-    echo "  System Information"
-    echo "======================================"
-    echo "Hostname:       $(hostname)"
-    echo "OS:             $(uname -o)"
-    echo "Kernel:         $(uname -r)"
-    echo "Architecture:   $(uname -m)"
-    echo "Uptime:         $(uptime -p)"
-    if command -v lsb_release &>/dev/null; then
-        echo "Distribution:   $(lsb_release -d | cut -f2)"
-    fi
-    echo "======================================"
-}
-
-# ============================================================================
-# Benchmark Command Execution
-# ============================================================================
-benchmark() {
-    local iterations="${2:-10}"
-    echo "Running '$1' $iterations times..."
-    time for i in $(seq 1 "$iterations"); do
-        eval "$1" > /dev/null 2>&1
-    done
-}
-
-# ============================================================================
-# Zoxide Integration (if available)
-# ============================================================================
-if command -v zoxide &>/dev/null; then
-    alias cd='z'
-    alias cdi='zi'
-fi
-
-# ============================================================================
-# FZF Helpers (if available)
-# ============================================================================
-if command -v fzf &>/dev/null; then
-    # Interactive file search with preview
-    fzf_preview() {
-        if command -v bat &>/dev/null; then
-            fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}'
-        else
-            fzf --preview 'cat {}'
-        fi
-    }
-    
-    # Interactive directory change
-    fcd() {
-        local dir
-        dir=$(find "${1:-.}" -type d 2>/dev/null | fzf +m) && cd "$dir" || return
-    }
-    
-    # Interactive git branch checkout
-    fgco() {
-        local branch
-        branch=$(git branch --all | grep -v HEAD | sed 's/^..//' | fzf +m) &&
-        git checkout "$(echo "$branch" | sed 's#remotes/[^/]*/##')"
-    }
-fi
-
-# ============================================================================
-# Chezmoi Helpers (if installed)
-# ============================================================================
-if command -v chezmoi &>/dev/null; then
-    alias cza='chezmoi add'
-    alias cze='chezmoi edit'
-    alias czd='chezmoi diff'
-    alias czap='chezmoi apply'
-    czcd() { cd "$(chezmoi source-path)" || return 1; }
-    alias cm='chezmoi'
-    
-    # Chezmoi commit and push
-    cmc() {
-        local msg="$*"
-        if [ -n "$msg" ]; then
-            chezmoi git commit -m "$msg"
-        else
-            chezmoi git commit
-        fi
-        if [ $? -eq 0 ]; then
-            chezmoi git push
-        fi
-    }
-    
-    # Chezmoi add from current directory
-    cma() {
-        local current_dir="$PWD"
-        local files=()
-        for file in "$@"; do
-            files+=("$current_dir/$file")
-        done
-        cd ~ || return
-        chezmoi add "${files[@]}"
-        cd "$current_dir" || return
-    }
-    
-    # Chezmoi sync
-    cms() {
-        local current_dir="$PWD"
-        cd ~ || return
-        
-        # Start gpg-agent if not running
-        if ! pgrep -x gpg-agent >/dev/null 2>&1; then
-            gpg-connect-agent /bye >/dev/null 2>&1
-        fi
-        
-        chezmoi re-add
-        cd "$(chezmoi source-path)" || return
-        git status
-        cd "$current_dir" || return
-    }
-fi
-
-# ============================================================================
-# File Hash Utilities
-# ============================================================================
-sha256() {
-    if [ -f "$1" ]; then
-        sha256sum "$1" | awk '{print $1}'
-    else
-        echo "File not found: $1"
-        return 1
-    fi
-}
-
-md5() {
-    if [ -f "$1" ]; then
-        md5sum "$1" | awk '{print $1}'
-    else
-        echo "File not found: $1"
-        return 1
-    fi
-}
-
-# ============================================================================
-# Git Pretty Log (Ported from gitHelpers.ps1)
-# ============================================================================
-if command -v git &>/dev/null; then
-    # Colors for git log
-    export GIT_LOG_YELLOW="#F9E2AF"
-    export GIT_LOG_RED="#f38ba8"
-    export GIT_LOG_BLUE="#89B4FA"
-    export GIT_LOG_GREEN="#A6E3A1"
-    
-    # Pretty git log
-    glog() {
-        git log --graph --pretty=format:"%C(yellow)%h%Creset %C(green)(%ar)%Creset %C(green)%as%Creset %C(blue)<%an>%Creset%C(red)%d%Creset - %s" --no-show-signature "$@"
-    }
-    
-    # Show git head
-    ghead() {
-        git log --graph --pretty=format:"%C(yellow)%h%Creset %C(green)(%ar)%Creset %C(blue)<%an>%Creset%C(red)%d%Creset - %s" --no-show-signature -1
-        git show -p --pretty="tformat:"
-    }
-    
-    # Pretty git branch
-    gbr() {
-        git branch -v --color=always --sort=-committerdate "$@"
-    }
-fi
-
-# ============================================================================
-# Advanced File Search (Ported from SearchUtils.ps1)
-# ============================================================================
-
 # Find files by pattern
 ff() {
     local pattern="${1:-*}"
@@ -467,7 +348,7 @@ search() {
     local path="${2:-.}"
     
     if [ -z "$pattern" ]; then
-        echo "Usage: search <pattern> [path]"
+        echo "Usage: search <pattern> [path]" >&2
         return 1
     fi
     
@@ -481,7 +362,7 @@ search() {
 # Which command - find command location
 which_cmd() {
     if [ -z "$1" ]; then
-        echo "Usage: which_cmd <command>"
+        echo "Usage: which_cmd <command>" >&2
         return 1
     fi
     
@@ -492,18 +373,36 @@ which_cmd() {
 }
 
 # ============================================================================
-# Directory Shortcuts (Ported from linuxLike.ps1)
+# System Information
 # ============================================================================
-dirs() {
-    if [ $# -eq 0 ]; then
-        find . -type f 2>/dev/null
-    else
-        find . -type f -name "$1" 2>/dev/null
+sysinfo() {
+    echo "======================================"
+    echo "  System Information"
+    echo "======================================"
+    echo "Hostname:       $(hostname)"
+    echo "OS:             $(uname -o)"
+    echo "Kernel:         $(uname -r)"
+    echo "Architecture:   $(uname -m)"
+    echo "Uptime:         $(uptime -p 2>/dev/null || uptime)"
+    if command -v lsb_release &>/dev/null; then
+        echo "Distribution:   $(lsb_release -d | cut -f2)"
     fi
+    echo "======================================"
 }
 
 # ============================================================================
-# FZF Advanced Functions (if available)
+# Benchmark Command Execution
+# ============================================================================
+benchmark() {
+    local iterations="${2:-10}"
+    echo "Running '$1' $iterations times..."
+    time for i in $(seq 1 "$iterations"); do
+        eval "$1" > /dev/null 2>&1
+    done
+}
+
+# ============================================================================
+# FZF Advanced Functions
 # ============================================================================
 if command -v fzf &>/dev/null; then
     # FZF with ripgrep integration
@@ -542,4 +441,57 @@ if command -v fzf &>/dev/null; then
     }
     
     alias fo='fzf_open'
+    
+    # Interactive directory change
+    fcd() {
+        local dir
+        dir=$(find "${1:-.}" -type d 2>/dev/null | fzf +m) && cd "$dir" || return
+    }
+    
+    # Interactive git branch checkout
+    fgco() {
+        local branch
+        branch=$(git branch --all 2>/dev/null | grep -v HEAD | sed 's/^..//' | fzf +m) &&
+        git checkout "$(echo "$branch" | sed 's#remotes/[^/]*/##')"
+    }
+fi
+
+# ============================================================================
+# File Hash Utilities
+# ============================================================================
+sha256() {
+    if [ -f "$1" ]; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        echo "File not found: $1" >&2
+        return 1
+    fi
+}
+
+md5() {
+    if [ -f "$1" ]; then
+        md5sum "$1" | awk '{print $1}'
+    else
+        echo "File not found: $1" >&2
+        return 1
+    fi
+}
+
+# ============================================================================
+# Directory Shortcuts
+# ============================================================================
+dirs() {
+    if [ $# -eq 0 ]; then
+        find . -type f 2>/dev/null
+    else
+        find . -type f -name "$1" 2>/dev/null
+    fi
+}
+
+# ============================================================================
+# Zoxide Integration (lazy - only if available)
+# ============================================================================
+if command -v zoxide &>/dev/null; then
+    alias cd='z'
+    alias cdi='zi'
 fi
