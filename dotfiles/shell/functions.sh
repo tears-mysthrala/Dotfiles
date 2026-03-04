@@ -326,6 +326,7 @@ fd_dir() {
 }
 
 # Find files by pattern
+unalias ff 2>/dev/null
 ff() {
     local pattern="${1:-*}"
     local path="${2:-.}"
