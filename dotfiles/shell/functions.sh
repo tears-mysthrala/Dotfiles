@@ -137,6 +137,79 @@ _upgrade_run_step() {
     fi
 }
 
+_upgrade_system() {
+    if command -v yay &>/dev/null; then
+        yay -Syu
+    elif command -v paru &>/dev/null; then
+        paru -Syu
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -Syu
+    elif command -v dnf &>/dev/null; then
+        sudo dnf upgrade -y
+    elif command -v apt &>/dev/null; then
+        sudo apt update && sudo apt upgrade -y
+    elif command -v zypper &>/dev/null; then
+        sudo zypper refresh && sudo zypper update -y
+    elif command -v apk &>/dev/null; then
+        sudo apk update && sudo apk upgrade
+    else
+        echo "No se reconoce el gestor de paquetes" >&2
+        return 1
+    fi
+}
+
+_upgrade_uv() {
+    command -v uv &>/dev/null || return 0
+    uv tool upgrade --all
+}
+
+_upgrade_gem() {
+    command -v gem &>/dev/null || return 0
+    gem update && gem cleanup
+}
+
+_upgrade_cargo() {
+    command -v cargo &>/dev/null || return 0
+    if ! command -v cargo-install-update &>/dev/null; then
+        _UPGRADE_STEP_NOTE="cargo-install-update no encontrado — instala con: cargo install cargo-update"
+        return 0
+    fi
+    cargo install-update -a
+}
+
+_upgrade_pipx() {
+    command -v pipx &>/dev/null || return 0
+    pipx upgrade-all
+}
+
+_upgrade_npm() {
+    command -v npm &>/dev/null || return 0
+    npm update -g
+}
+
+_upgrade_flatpak() {
+    command -v flatpak &>/dev/null || return 0
+    flatpak update -y
+}
+
+_upgrade_dotfiles() {
+    local dotfiles_dir="$HOME/.dotfiles"
+    [[ -d "$dotfiles_dir/.git" ]] || return 0
+
+    local before after count
+    before=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null) || return 1
+    git -C "$dotfiles_dir" pull || return 1
+    after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
+
+    if [[ "$before" != "$after" ]]; then
+        count=$(git -C "$dotfiles_dir" rev-list --count "${before}..${after}" 2>/dev/null)
+        _UPGRADE_STEP_NOTE="${count} commit(s) nuevos → exec bash al terminar"
+        _UPGRADE_DOTFILES_CHANGED=1
+    else
+        _UPGRADE_STEP_NOTE="ya al día"
+    fi
+}
+
 # ============================================================================
 # System Cleanup Functions
 # ============================================================================
