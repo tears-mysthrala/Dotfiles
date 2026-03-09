@@ -165,7 +165,10 @@ _upgrade_uv() {
 
 _upgrade_gem() {
     command -v gem &>/dev/null || return 0
-    gem update && gem cleanup
+    gem update
+    local rc=$?
+    gem cleanup 2>/dev/null || true
+    return $rc
 }
 
 _upgrade_cargo() {
