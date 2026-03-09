@@ -213,6 +213,71 @@ _upgrade_dotfiles() {
     fi
 }
 
+upgrade() {
+    # Reset state
+    _upgrade_results=()
+    _upgrade_errors=()
+    _UPGRADE_DOTFILES_CHANGED=0
+
+    local -a steps=(
+        "system:_upgrade_system"
+        "uv tools:_upgrade_uv"
+        "gem:_upgrade_gem"
+        "cargo:_upgrade_cargo"
+        "pipx:_upgrade_pipx"
+        "npm globals:_upgrade_npm"
+        "flatpak:_upgrade_flatpak"
+        "dotfiles:_upgrade_dotfiles"
+    )
+
+    local total=${#steps[@]}
+    local i=0 name fn
+
+    echo "🔄 Actualizando sistema..."
+    echo
+
+    for step in "${steps[@]}"; do
+        name="${step%%:*}"
+        fn="${step##*:}"
+        i=$((i + 1))
+        printf "[%d/%d] %s...\n" "$i" "$total" "$name"
+        _upgrade_run_step "$name" "$fn"
+    done
+
+    # Deferred summary
+    local sep="──────────────────────────────────────────"
+    echo
+    echo "$sep"
+    local result
+    for result in "${_upgrade_results[@]}"; do
+        echo "$result"
+    done
+    echo
+
+    local failed=${#_upgrade_errors[@]}
+    local succeeded=$((total - failed))
+    echo "  ${succeeded}/${total} completados · ${failed} fallo(s)"
+
+    if [[ $failed -gt 0 ]]; then
+        echo
+        local err
+        for err in "${_upgrade_errors[@]}"; do
+            echo "$err"
+        done
+    fi
+    echo "$sep"
+
+    # Re-source dotfiles if they changed
+    if [[ $_UPGRADE_DOTFILES_CHANGED -eq 1 ]]; then
+        echo
+        echo "♻️  Reiniciando shell para aplicar cambios en dotfiles..."
+        exec bash
+    fi
+
+    # Cleanup globals
+    unset _upgrade_results _upgrade_errors _UPGRADE_DOTFILES_CHANGED _UPGRADE_STEP_NOTE
+}
+
 # ============================================================================
 # System Cleanup Functions
 # ============================================================================
