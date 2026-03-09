@@ -230,6 +230,14 @@ if command -v zoxide &>/dev/null; then
 fi
 
 # ============================================================================
+# CTF Performance Optimization
+# ============================================================================
+# Increase file descriptors for high-speed scanners (RustScan, ZMap)
+if [ "$(ulimit -n)" -lt 65535 ]; then
+    ulimit -n 65535 2>/dev/null || true
+fi
+
+# ============================================================================
 # Clean up helper function
 # ============================================================================
 unset -f _path_prepend 2>/dev/null || true
