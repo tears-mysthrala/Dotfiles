@@ -57,7 +57,7 @@ alias push='git push'
 alias gaa='git add --all'
 alias gc='git commit'
 alias gco='git checkout'
-alias gd='git diff'
+unset -f gd 2>/dev/null || true; alias gd='git diff'  # overrides omarchy's gd() worktree function
 alias gl='git log --oneline --graph --decorate'
 
 # ============================================================================
@@ -254,6 +254,31 @@ pbpaste() {
         return 1
     fi
 }
+
+# ============================================================================
+# CTF & Security Aliases
+# ============================================================================
+alias rsa='RsaCtfTool.py'
+alias rsa-solve='RsaCtfTool.py --publickey'
+alias factordb='python3 -m factordb'
+alias pinit='pwninit --template-path ~/.config/pwninit-template.py'
+alias check='checksec --file'
+alias gadgets='ropper --file'
+alias og='one_gadget'
+
+# OT/ICS Shortcuts
+alias modbus-scan='python3 ~/ctf-toolkit/attack/ot-exploits/modbus-scan-async.py'
+alias s7-scan='~/ctf-toolkit/attack/ot-exploits/s7-scan.sh'
+alias mqtt-scan='~/ctf-toolkit/attack/ot-exploits/mqtt-scan.sh'
+
+# Fast Scanning
+alias fscan='rustscan -a'
+alias rscan='rustscan -a'
+
+# Networking / Pivoting
+alias ligolo-proxy='/usr/local/bin/proxy'
+alias ligolo-agent='/usr/local/bin/agent'
+alias tunnel='chisel'
 
 # ============================================================================
 # Cleanup
