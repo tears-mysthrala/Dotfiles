@@ -119,8 +119,7 @@ _upgrade_run_step() {
     start=$(date +%s)
     _UPGRADE_STEP_NOTE=""
 
-    "$fn"
-    exit_code=$?
+    "$fn" && exit_code=0 || exit_code=$?
 
     end=$(date +%s)
     elapsed=$((end - start))
