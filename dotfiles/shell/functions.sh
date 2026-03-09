@@ -94,75 +94,48 @@ detect_package_manager() {
     fi
 }
 
-upgrade() {
-    local pkg_manager
-    pkg_manager=$(detect_package_manager)
-    
-    echo "🔄 Starting system upgrade..."
-    echo "Package manager: $pkg_manager"
-    
-    case "$pkg_manager" in
-        apt)
-            echo "📦 Updating APT packages..."
-            sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y
-            ;;
-        dnf)
-            echo "📦 Updating DNF packages..."
-            sudo dnf upgrade -y && sudo dnf autoremove -y
-            ;;
-        yum)
-            echo "📦 Updating YUM packages..."
-            sudo yum update -y && sudo yum autoremove -y
-            ;;
-        pacman)
-            echo "📦 Updating Pacman packages..."
-            sudo pacman -Syu --noconfirm
-            ;;
-        zypper)
-            echo "📦 Updating Zypper packages..."
-            sudo zypper refresh && sudo zypper update -y
-            ;;
-        apk)
-            echo "📦 Updating APK packages..."
-            sudo apk update && sudo apk upgrade
-            ;;
-        *)
-            echo "⚠️  Unknown package manager"
-            return 1
-            ;;
+# Internal state for upgrade runner
+_upgrade_results=()
+_upgrade_errors=()
+_UPGRADE_STEP_NOTE=""
+_UPGRADE_DOTFILES_CHANGED=0
+
+_upgrade_fix_cmd() {
+    case "$1" in
+        system)       echo "yay -Syu --overwrite '*'  # or your distro equivalent" ;;
+        npm\ globals) echo "npm install -g npm@latest" ;;
+        gem)          echo "gem update --system && gem update" ;;
+        cargo)        echo "cargo install cargo-update" ;;
+        dotfiles)     echo "cd ~/.dotfiles && git status" ;;
+        *)            echo "revisa la salida de arriba" ;;
     esac
-    
-    # Update Flatpak if installed
-    if command -v flatpak &>/dev/null; then
-        echo "📦 Updating Flatpak packages..."
-        flatpak update -y
+}
+
+_upgrade_run_step() {
+    local name="$1"
+    local fn="$2"
+    local start end elapsed elapsed_fmt exit_code note fix_cmd
+
+    start=$(date +%s)
+    _UPGRADE_STEP_NOTE=""
+
+    "$fn"
+    exit_code=$?
+
+    end=$(date +%s)
+    elapsed=$((end - start))
+    elapsed_fmt=$(printf "%dm %02ds" $((elapsed / 60)) $((elapsed % 60)))
+
+    note=""
+    [[ -n "$_UPGRADE_STEP_NOTE" ]] && note="  · $_UPGRADE_STEP_NOTE"
+
+    if [[ $exit_code -eq 0 ]]; then
+        _upgrade_results+=("  ✅ $(printf '%-14s' "$name")  $elapsed_fmt$note")
+    else
+        fix_cmd=$(_upgrade_fix_cmd "$name")
+        _upgrade_results+=("  ❌ $(printf '%-14s' "$name")  $elapsed_fmt")
+        _upgrade_errors+=("  $name → $fix_cmd")
     fi
-    
-    # Update Snap if installed
-    if command -v snap &>/dev/null; then
-        echo "📦 Updating Snap packages..."
-        sudo snap refresh
-    fi
-    
-    # Update NPM globals
-    if command -v npm &>/dev/null; then
-        echo "📦 Updating NPM global packages..."
-        npm update -g
-    fi
-    
-    # Update Cargo packages
-    if command -v cargo &>/dev/null && command -v cargo-install-update &>/dev/null; then
-        echo "📦 Updating Cargo packages..."
-        cargo install-update -a
-    fi
-    
-    # Update Pipx packages
-    if command -v pipx &>/dev/null; then
-        echo "📦 Updating Pipx packages..."
-        pipx upgrade-all
-    fi
-    
-    echo "✅ System upgrade completed!"
 }
 
 # ============================================================================
