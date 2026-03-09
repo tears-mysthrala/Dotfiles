@@ -57,7 +57,7 @@ alias push='git push'
 alias gaa='git add --all'
 alias gc='git commit'
 alias gco='git checkout'
-unset -f gd 2>/dev/null || true; alias gd='git diff'  # overrides omarchy's gd() worktree function
+alias gdiff='git diff'
 alias gl='git log --oneline --graph --decorate'
 
 # ============================================================================
