@@ -104,7 +104,7 @@ _upgrade_fix_cmd() {
     case "$1" in
         system)       echo "yay -Syu --overwrite '*'  # or your distro equivalent" ;;
         npm\ globals) echo "npm install -g npm@latest" ;;
-        gem)          echo "gem update --system && gem update" ;;
+        gem)          echo "sudo dnf install ruby-devel && gem update" ;;
         cargo)        echo "cargo install cargo-update" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
@@ -165,6 +165,13 @@ _upgrade_uv() {
 
 _upgrade_gem() {
     command -v gem &>/dev/null || return 0
+    # Check ruby development headers (needed to compile native extensions)
+    local hdrdir
+    hdrdir=$(ruby -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
+    if [[ ! -f "${hdrdir}/ruby.h" ]]; then
+        _UPGRADE_STEP_NOTE="ruby-devel faltante → sudo dnf install ruby-devel"
+        return 1
+    fi
     gem update
     local rc=$?
     gem cleanup 2>/dev/null || true
@@ -182,7 +189,8 @@ _upgrade_cargo() {
 
 _upgrade_pipx() {
     command -v pipx &>/dev/null || return 0
-    pipx upgrade-all
+    # Run from $HOME to avoid WSL UNC path (\\wsl.localhost\...) breaking CMD.EXE
+    (cd "$HOME" && pipx upgrade-all)
 }
 
 _upgrade_npm() {
