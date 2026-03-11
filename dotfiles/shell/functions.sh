@@ -164,17 +164,22 @@ _upgrade_uv() {
 }
 
 _upgrade_gem() {
-    command -v gem &>/dev/null || return 0
+    # Use Linux gem/ruby explicitly — skip Windows Ruby binaries mounted at /mnt/
+    local gem_bin ruby_bin
+    gem_bin=$(type -ap gem 2>/dev/null | grep -v '^/mnt/' | head -1)
+    ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
+    [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
+
     # Check ruby development headers (needed to compile native extensions)
     local hdrdir
-    hdrdir=$(ruby -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
+    hdrdir=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
     if [[ ! -f "${hdrdir}/ruby.h" ]]; then
         _UPGRADE_STEP_NOTE="ruby-devel faltante → sudo dnf install ruby-devel"
         return 1
     fi
-    gem update
+    "$gem_bin" update
     local rc=$?
-    gem cleanup 2>/dev/null || true
+    "$gem_bin" cleanup 2>/dev/null || true
     return $rc
 }
 
