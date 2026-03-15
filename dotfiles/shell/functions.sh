@@ -100,6 +100,12 @@ _upgrade_errors=()
 _UPGRADE_STEP_NOTE=""
 _UPGRADE_DOTFILES_CHANGED=0
 
+_upgrade_exec_shell() {
+    local shell_bin="${SHELL:-/bin/bash}"
+    [[ -x "$shell_bin" ]] || shell_bin="/bin/bash"
+    exec "$shell_bin" -l
+}
+
 _upgrade_fix_cmd() {
     case "$1" in
         system)       echo "yay -Syu --overwrite '*'  # or your distro equivalent" ;;
@@ -212,14 +218,38 @@ _upgrade_dotfiles() {
     local dotfiles_dir="$HOME/.dotfiles"
     [[ -d "$dotfiles_dir/.git" ]] || return 0
 
-    local before after count
+    local before after count upstream remote
     before=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null) || return 1
-    git -C "$dotfiles_dir" pull || return 1
+
+    if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
+       ! git -C "$dotfiles_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+        _UPGRADE_STEP_NOTE="cambios locales en ~/.dotfiles → se omite pull"
+        return 0
+    fi
+
+    upstream=$(git -C "$dotfiles_dir" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null) || {
+        _UPGRADE_STEP_NOTE="sin upstream configurado en ~/.dotfiles"
+        return 0
+    }
+    remote="${upstream%%/*}"
+
+    git -C "$dotfiles_dir" fetch --prune "$remote" || return 1
+    after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
+
+    if [[ "$before" = "$after" ]]; then
+        if git -C "$dotfiles_dir" diff --quiet "${upstream}"...HEAD 2>/dev/null && \
+           git -C "$dotfiles_dir" diff --quiet HEAD..."${upstream}" 2>/dev/null; then
+            _UPGRADE_STEP_NOTE="ya al día"
+            return 0
+        fi
+    fi
+
+    git -C "$dotfiles_dir" merge --ff-only "${upstream}" || return 1
     after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
 
     if [[ "$before" != "$after" ]]; then
         count=$(git -C "$dotfiles_dir" rev-list --count "${before}..${after}" 2>/dev/null)
-        _UPGRADE_STEP_NOTE="${count} commit(s) nuevos → exec bash al terminar"
+        _UPGRADE_STEP_NOTE="${count} commit(s) nuevos → reinicio de shell al terminar"
         _UPGRADE_DOTFILES_CHANGED=1
     else
         _UPGRADE_STEP_NOTE="ya al día"
@@ -284,7 +314,7 @@ upgrade() {
     if [[ $_UPGRADE_DOTFILES_CHANGED -eq 1 ]]; then
         echo
         echo "♻️  Reiniciando shell para aplicar cambios en dotfiles..."
-        exec bash
+        _upgrade_exec_shell
     fi
 
     # Cleanup globals

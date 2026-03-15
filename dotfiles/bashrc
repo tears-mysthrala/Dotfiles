@@ -1,40 +1,54 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
-# ============================================================================
-# 1. Omarchy base (env, shell, aliases, functions) — skip its init
-#    so we control tool initialization ourselves (cached versions)
-# ============================================================================
-source ~/.local/share/omarchy/default/bash/envs
-source ~/.local/share/omarchy/default/bash/shell
-source ~/.local/share/omarchy/default/bash/aliases
-source ~/.local/share/omarchy/default/bash/functions
-[[ $- == *i* ]] && bind -f ~/.local/share/omarchy/default/bash/inputrc
+# Guarded source to keep the shell usable when optional components are missing.
+source_if_exists() {
+    local file="$1"
+    [ -f "$file" ] && source "$file"
+}
+
+# Omora is your Fedora fork, but the installed framework still uses the
+# historical ~/.local/share/omarchy path and OMARCHY_PATH internally.
+if [[ -d "$HOME/.local/share/omora" ]]; then
+    export OMORA_PATH="$HOME/.local/share/omora"
+else
+    export OMORA_PATH="$HOME/.local/share/omarchy"
+fi
 
 # ============================================================================
-# 2. User customizations — override/extend Omarchy
+# 1. Omora base (still installed under the omarchy path) — skip its init
+#    so we control tool initialization ourselves (cached versions)
+# ============================================================================
+source_if_exists ~/.local/share/omarchy/default/bash/envs
+source_if_exists ~/.local/share/omarchy/default/bash/shell
+source_if_exists ~/.local/share/omarchy/default/bash/aliases
+source_if_exists ~/.local/share/omarchy/default/bash/functions
+[[ -f ~/.local/share/omarchy/default/bash/inputrc ]] && bind -f ~/.local/share/omarchy/default/bash/inputrc
+
+# ============================================================================
+# 2. User customizations — override/extend Omora
 # ============================================================================
 for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
     [ -f "$file" ] && source "$file"
 done
 
 # ============================================================================
-# 3. Optimized tool initialization (replaces Omarchy's direct eval)
+# 3. Optimized tool initialization (replaces Omora's direct eval)
 # ============================================================================
-[ -f "$HOME/.config/shell/optimized-tools.sh" ] && source "$HOME/.config/shell/optimized-tools.sh"
+source_if_exists "$HOME/.config/shell/optimized-tools.sh"
 
-# Mise (runtime manager — from Omarchy)
+# Mise (runtime manager — from Omora base)
 if command -v mise >/dev/null 2>&1; then
     eval "$(mise activate bash)"
 fi
 
 # Starship prompt — cached init for faster startup
-if command -v starship >/dev/null 2>&1; then
+if command -v starship >/dev/null 2>&1 && declare -F init_starship_optimized >/dev/null; then
     init_starship_optimized bash
 fi
 
 # Zoxide — lazy loaded (only initializes on first 'z' use)
-if command -v zoxide >/dev/null 2>&1; then
+if command -v zoxide >/dev/null 2>&1 && declare -F init_zoxide_lazy >/dev/null; then
     init_zoxide_lazy bash
 fi
 
@@ -50,9 +64,8 @@ fi
 
 # OpenClaw completion (if installed)
 if command -v openclaw >/dev/null 2>&1; then
-    source <(openclaw completion --shell bash 2>/dev/null) || \
-        { [ -f "$HOME/.openclaw/completions/openclaw.bash" ] && \
-          source "$HOME/.openclaw/completions/openclaw.bash"; }
+    [ -f "$HOME/.openclaw/completions/openclaw.bash" ] && \
+        source "$HOME/.openclaw/completions/openclaw.bash"
 fi
 
 # ============================================================================

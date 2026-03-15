@@ -21,6 +21,14 @@ HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 
+# Omora is your Fedora fork, but the installed framework still uses the
+# historical ~/.local/share/omarchy path and OMARCHY_PATH internally.
+if [[ -d "$HOME/.local/share/omora" ]]; then
+    export OMORA_PATH="$HOME/.local/share/omora"
+else
+    export OMORA_PATH="$HOME/.local/share/omarchy"
+fi
+
 # ============================================================================
 # Load Shell Modules
 # ============================================================================
@@ -55,7 +63,8 @@ fi
 
 # OpenClaw Completion (if installed)
 if command -v openclaw >/dev/null 2>&1; then
-    source <(openclaw completion --shell zsh 2>/dev/null)
+    [ -f "$HOME/.openclaw/completions/openclaw.zsh" ] && \
+        source "$HOME/.openclaw/completions/openclaw.zsh"
 fi
 
 # ============================================================================
