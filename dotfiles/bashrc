@@ -7,23 +7,26 @@ source_if_exists() {
     [ -f "$file" ] && source "$file"
 }
 
-# Omora is your Fedora fork, but the installed framework still uses the
-# historical ~/.local/share/omarchy path and OMARCHY_PATH internally.
+# Omora is your Fedora fork. Prefer the new omora path, but keep the legacy
+# OMARCHY_PATH available because the upstream framework still consumes it.
 if [[ -d "$HOME/.local/share/omora" ]]; then
     export OMORA_PATH="$HOME/.local/share/omora"
+elif [[ -n "${OMARCHY_PATH:-}" ]]; then
+    export OMORA_PATH="$OMARCHY_PATH"
 else
     export OMORA_PATH="$HOME/.local/share/omarchy"
 fi
+export OMARCHY_PATH="${OMARCHY_PATH:-$OMORA_PATH}"
 
 # ============================================================================
-# 1. Omora base (still installed under the omarchy path) — skip its init
+# 1. Omora base — skip its init
 #    so we control tool initialization ourselves (cached versions)
 # ============================================================================
-source_if_exists ~/.local/share/omarchy/default/bash/envs
-source_if_exists ~/.local/share/omarchy/default/bash/shell
-source_if_exists ~/.local/share/omarchy/default/bash/aliases
-source_if_exists ~/.local/share/omarchy/default/bash/functions
-[[ -f ~/.local/share/omarchy/default/bash/inputrc ]] && bind -f ~/.local/share/omarchy/default/bash/inputrc
+source_if_exists "$OMORA_PATH/default/bash/envs"
+source_if_exists "$OMORA_PATH/default/bash/shell"
+source_if_exists "$OMORA_PATH/default/bash/aliases"
+source_if_exists "$OMORA_PATH/default/bash/functions"
+[[ -f "$OMORA_PATH/default/bash/inputrc" ]] && bind -f "$OMORA_PATH/default/bash/inputrc"
 
 # ============================================================================
 # 2. User customizations — override/extend Omora

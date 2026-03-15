@@ -77,6 +77,24 @@ export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
 # ============================================================================
+# Omora / Omarchy Compatibility
+# ============================================================================
+if [ -z "$OMORA_PATH" ]; then
+    if [ -d "$HOME/.local/share/omora" ]; then
+        export OMORA_PATH="$HOME/.local/share/omora"
+    elif [ -n "$OMARCHY_PATH" ]; then
+        export OMORA_PATH="$OMARCHY_PATH"
+    else
+        export OMORA_PATH="$HOME/.local/share/omarchy"
+    fi
+fi
+export OMARCHY_PATH="${OMARCHY_PATH:-$OMORA_PATH}"
+
+if [ -d "$OMORA_PATH/bin" ]; then
+    _path_prepend "$OMORA_PATH/bin"
+fi
+
+# ============================================================================
 # Tool Configurations
 # ============================================================================
 
@@ -126,7 +144,11 @@ fi
 
 # Ripgrep - check common paths first
 if [ -x "$HOME/.local/bin/rg" ] || [ -x "/usr/bin/rg" ]; then
-    export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/ripgreprc"
+    if [ -f "$HOME/.config/ripgrep/ripgreprc" ]; then
+        export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/ripgreprc"
+    else
+        unset RIPGREP_CONFIG_PATH
+    fi
 fi
 
 # Less (pager)

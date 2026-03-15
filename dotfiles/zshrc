@@ -21,13 +21,16 @@ HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 
-# Omora is your Fedora fork, but the installed framework still uses the
-# historical ~/.local/share/omarchy path and OMARCHY_PATH internally.
+# Omora is your Fedora fork. Prefer the new omora path, but keep the legacy
+# OMARCHY_PATH available because the upstream framework still consumes it.
 if [[ -d "$HOME/.local/share/omora" ]]; then
     export OMORA_PATH="$HOME/.local/share/omora"
+elif [[ -n "${OMARCHY_PATH:-}" ]]; then
+    export OMORA_PATH="$OMARCHY_PATH"
 else
     export OMORA_PATH="$HOME/.local/share/omarchy"
 fi
+export OMARCHY_PATH="${OMARCHY_PATH:-$OMORA_PATH}"
 
 # ============================================================================
 # Load Shell Modules

@@ -2,7 +2,7 @@
 # update_profiles.sh
 # Safely update user shell profiles to avoid errors from missing third-party profiles
 # - backs up existing files
-# - replaces unconditional omarchy sourcing with a guarded source
+# - replaces unconditional omora/omarchy sourcing with a guarded source
 # - ensures ~/.bashrc sources ~/.dotfiles/dotfiles/bashrc if present
 
 set -euo pipefail
@@ -15,9 +15,19 @@ for f in "${FILES[@]}"; do
     echo "Processing $f"
     cp -p "$f" "$f.bak.$TS"
 
-    # Replace any line that references the omarchy rc file with a guarded source
+    # Replace any line that references the omora/omarchy rc file with a guarded source
     tmpfile=$(mktemp)
-    awk '/omarchy.*bash\/rc/ { print "[ -f ~/.local/share/omarchy/default/bash/rc ] && source ~/.local/share/omarchy/default/bash/rc"; next } { print }' "$f" > "$tmpfile"
+    awk '
+      /omora.*bash\/rc|omarchy.*bash\/rc/ {
+        print "if [ -f ~/.local/share/omora/default/bash/rc ]; then"
+        print "  source ~/.local/share/omora/default/bash/rc"
+        print "elif [ -f ~/.local/share/omarchy/default/bash/rc ]; then"
+        print "  source ~/.local/share/omarchy/default/bash/rc"
+        print "fi"
+        next
+      }
+      { print }
+    ' "$f" > "$tmpfile"
     mv "$tmpfile" "$f"
 
     # If this is ~/.bashrc, ensure it sources the repository-managed bashrc
