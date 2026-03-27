@@ -112,6 +112,8 @@ _upgrade_fix_cmd() {
         npm\ globals) echo "npm install -g npm@latest" ;;
         gem)          echo "sudo dnf install ruby-devel && gem update" ;;
         cargo)        echo "cargo install cargo-update" ;;
+        mise)         echo "mise self-update && mise upgrade" ;;
+        pyenv)        echo "cd \${PYENV_ROOT:-\$HOME/.pyenv} && git pull" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
     esac
@@ -144,24 +146,47 @@ _upgrade_run_step() {
 }
 
 _upgrade_system() {
+    local _askpass _sudo_pipe
+    if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
+        _askpass=$(mktemp)
+        printf '#!/bin/sh\nprintf "%%s\n" "%s"\n' "$DOTFILES_SUDO_PASS" > "$_askpass"
+        chmod 700 "$_askpass"
+        _sudo_pipe() { SUDO_ASKPASS="$_askpass" sudo -A "$@"; }
+    else
+        _sudo_pipe() { sudo "$@"; }
+    fi
+
+    local rc=0
     if command -v yay &>/dev/null; then
-        yay -Syu
+        if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
+            SUDO_ASKPASS="$_askpass" yay -Syu --noconfirm --sudoflags="-A" || rc=$?
+        else
+            yay -Syu --noconfirm || rc=$?
+        fi
     elif command -v paru &>/dev/null; then
-        paru -Syu
+        if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
+            SUDO_ASKPASS="$_askpass" paru -Syu --noconfirm --sudoflags="-A" || rc=$?
+        else
+            paru -Syu --noconfirm || rc=$?
+        fi
     elif command -v pacman &>/dev/null; then
-        sudo pacman -Syu
+        _sudo_pipe pacman -Syu --noconfirm || rc=$?
     elif command -v dnf &>/dev/null; then
-        sudo dnf upgrade -y
+        _sudo_pipe dnf upgrade -y || rc=$?
     elif command -v apt &>/dev/null; then
-        sudo apt update && sudo apt upgrade -y
+        _sudo_pipe apt update && _sudo_pipe apt upgrade -y || rc=$?
     elif command -v zypper &>/dev/null; then
-        sudo zypper refresh && sudo zypper update -y
+        _sudo_pipe zypper refresh && _sudo_pipe zypper update -y || rc=$?
     elif command -v apk &>/dev/null; then
-        sudo apk update && sudo apk upgrade
+        _sudo_pipe apk update && _sudo_pipe apk upgrade || rc=$?
     else
         echo "No se reconoce el gestor de paquetes" >&2
-        return 1
+        rc=1
     fi
+
+    [[ -n "$_askpass" ]] && rm -f "$_askpass"
+    unset -f _sudo_pipe
+    return $rc
 }
 
 _upgrade_uv() {
@@ -212,6 +237,19 @@ _upgrade_npm() {
 _upgrade_flatpak() {
     command -v flatpak &>/dev/null || return 0
     flatpak update -y
+}
+
+_upgrade_mise() {
+    command -v mise &>/dev/null || return 0
+    mise self-update --yes 2>/dev/null || true  # falla si ya es la última versión, no es error
+    mise upgrade
+}
+
+_upgrade_pyenv() {
+    command -v pyenv &>/dev/null || return 0
+    local pyenv_root="${PYENV_ROOT:-$HOME/.pyenv}"
+    [[ -d "$pyenv_root/.git" ]] || return 0
+    git -C "$pyenv_root" pull --rebase --autostash
 }
 
 _upgrade_dotfiles() {
@@ -270,6 +308,8 @@ upgrade() {
         "pipx:_upgrade_pipx"
         "npm globals:_upgrade_npm"
         "flatpak:_upgrade_flatpak"
+        "mise:_upgrade_mise"
+        "pyenv:_upgrade_pyenv"
         "dotfiles:_upgrade_dotfiles"
     )
 
