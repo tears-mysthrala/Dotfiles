@@ -75,3 +75,10 @@ fi
 # 4. Local overrides (machine-specific, not tracked in git)
 # ============================================================================
 [ -f "$HOME/.bashrc.local" ] && source "$HOME/.bashrc.local"
+
+# Atuin shell history (if installed)
+if [ -f "$HOME/.atuin/bin/env" ]; then
+    . "$HOME/.atuin/bin/env"
+    [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+    eval "$(atuin init bash)"
+fi
