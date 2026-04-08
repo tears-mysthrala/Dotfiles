@@ -124,6 +124,10 @@ alias untar='tar -xvf'
 # ============================================================================
 # Development Tools
 # ============================================================================
+alias yolo='codex --dangerously-bypass-approvals-and-sandbox'
+alias cx='codex --dangerously-bypass-approvals-and-sandbox'
+alias cc='claude --dangerously-skip-permissions'
+
 if __has_fast npm; then
     alias ni='npm install'
     alias nid='npm install --save-dev'
