@@ -201,6 +201,12 @@ _upgrade_gem() {
     ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
     [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
 
+    # Fedora already ships rdoc; a user-installed copy causes duplicate
+    # constant warnings during gem operations.
+    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
+        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
+    fi
+
     # Check ruby development headers (needed to compile native extensions)
     local hdrdir
     hdrdir=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
@@ -208,8 +214,16 @@ _upgrade_gem() {
         _UPGRADE_STEP_NOTE="ruby-devel faltante → sudo dnf install ruby-devel"
         return 1
     fi
+
     "$gem_bin" update
     local rc=$?
+
+    # gem update reinstalls rdoc in user-space; remove it again so Fedora's
+    # system rdoc remains the only active copy.
+    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
+        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
+    fi
+
     "$gem_bin" cleanup 2>/dev/null || true
     return $rc
 }
@@ -224,9 +238,11 @@ _upgrade_cargo() {
 }
 
 _upgrade_pipx() {
-    command -v pipx &>/dev/null || return 0
+    local pipx_bin
+    pipx_bin=$(type -ap pipx 2>/dev/null | grep -v '^/mnt/' | head -1)
+    [[ -n "$pipx_bin" ]] || return 0
     # Run from $HOME to avoid WSL UNC path (\\wsl.localhost\...) breaking CMD.EXE
-    (cd "$HOME" && pipx upgrade-all)
+    (cd "$HOME" && "$pipx_bin" upgrade-all)
 }
 
 _upgrade_npm() {
