@@ -35,6 +35,7 @@ profile-status() {
     else
         printf 'persisted=none\n'
     fi
+    printf 'dotfiles_auto_sync=%s\n' "${DOTFILES_AUTO_SYNC:-0}"
 }
 
 switch-profile() {
@@ -65,6 +66,118 @@ switch-profile() {
 
     echo "Switched shell profile to: $profile_name"
     exec "${SHELL:-/bin/bash}" -l
+}
+
+_dotfiles_sync_fetch() {
+    local remote="${1:-origin}"
+    local dotfiles_dir="$HOME/.dotfiles"
+    local -a fetch_cmd=(git -C "$dotfiles_dir" fetch --prune --quiet "$remote")
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 8 "${fetch_cmd[@]}"
+    else
+        "${fetch_cmd[@]}"
+    fi
+}
+
+_dotfiles_sync_run() {
+    local mode="${1:-manual}"
+    local dotfiles_dir="$HOME/.dotfiles"
+    local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+    local stamp_file="$state_dir/last-auto-sync"
+    local lock_file="$state_dir/auto-sync.lock"
+    local before after upstream remote now last_sync interval
+
+    [[ -d "$dotfiles_dir/.git" ]] || return 0
+    mkdir -p "$state_dir"
+
+    if [[ "$mode" == "auto" ]]; then
+        [ -t 0 ] && [ -t 1 ] || return 0
+        [[ ${DOTFILES_AUTO_SYNC:-0} == 1 ]] || return 0
+        [[ -z ${DOTFILES_AUTO_SYNC_RUNNING:-} ]] || return 0
+
+        interval="${DOTFILES_AUTO_SYNC_INTERVAL:-21600}"
+        now=$(date +%s)
+        last_sync=0
+        [ -f "$stamp_file" ] && read -r last_sync < "$stamp_file"
+        [[ "$last_sync" =~ ^[0-9]+$ ]] || last_sync=0
+        (( now - last_sync >= interval )) || return 0
+        [ ! -e "$lock_file" ] || return 0
+
+        printf '%s\n' "$now" > "$lock_file"
+        export DOTFILES_AUTO_SYNC_RUNNING=1
+    fi
+
+    before=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null) || {
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 1
+    }
+
+    if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
+       ! git -C "$dotfiles_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: local changes detected in ~/.dotfiles; skipping pull" >&2
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 0
+    fi
+
+    upstream=$(git -C "$dotfiles_dir" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null) || {
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: no upstream configured for ~/.dotfiles" >&2
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 0
+    }
+    remote="${upstream%%/*}"
+
+    if ! GIT_TERMINAL_PROMPT=0 _dotfiles_sync_fetch "$remote"; then
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: fetch failed" >&2
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 1
+    fi
+
+    if git -C "$dotfiles_dir" diff --quiet "${upstream}"...HEAD 2>/dev/null && \
+       git -C "$dotfiles_dir" diff --quiet HEAD..."${upstream}" 2>/dev/null; then
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: already up to date"
+        printf '%s\n' "$(date +%s)" > "$stamp_file"
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 0
+    fi
+
+    if ! git -C "$dotfiles_dir" merge --ff-only "$upstream"; then
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: fast-forward failed" >&2
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 1
+    fi
+
+    after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
+    printf '%s\n' "$(date +%s)" > "$stamp_file"
+    rm -f "$lock_file" 2>/dev/null || true
+    unset DOTFILES_AUTO_SYNC_RUNNING
+
+    [[ "$before" != "$after" ]] || return 0
+
+    if [ -f "$dotfiles_dir/Makefile" ]; then
+        make -C "$dotfiles_dir" link >/dev/null 2>&1 || true
+    fi
+
+    if [[ "$mode" == "auto" ]]; then
+        echo "dotfiles-sync: updated from $remote and reloading shell"
+    else
+        echo "dotfiles-sync: updated from $remote and reloading shell"
+    fi
+    exec "${SHELL:-/bin/bash}" -l
+}
+
+dotfiles-sync() {
+    _dotfiles_sync_run manual
+}
+
+dotfiles-auto-sync() {
+    _dotfiles_sync_run auto
 }
 
 # ============================================================================

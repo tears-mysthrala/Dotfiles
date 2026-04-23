@@ -107,3 +107,8 @@ fi
 if [[ -t 0 && -t 1 && ${BLE_VERSION-} ]]; then
     ble-attach
 fi
+
+# Optional automatic dotfiles sync on shell startup.
+if declare -F dotfiles-auto-sync >/dev/null 2>&1; then
+    dotfiles-auto-sync
+fi

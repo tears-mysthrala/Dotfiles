@@ -201,6 +201,7 @@ lg() {
 alias whichcmd='which_cmd'
 alias switch='switch-profile'
 alias profile='profile-status'
+alias dsync='dotfiles-sync'
 
 # ============================================================================
 # Clipboard integration (lazy-loaded)
