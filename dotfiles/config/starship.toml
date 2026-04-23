@@ -1,6 +1,12 @@
 add_newline = true
 command_timeout = 200
-format = "[$directory$git_branch$git_status]($style)$character"
+format = "[$custom.profile_base$directory$git_branch$git_status]($style)$character"
+
+[custom.profile_base]
+when = "test \"${SHELL_PROFILE:-base}\" != base"
+command = "printf '%s' \"${SHELL_PROFILE}\""
+format = "[$output]($style) "
+style = "bold yellow"
 
 [character]
 error_symbol = "[✗](bold cyan)"

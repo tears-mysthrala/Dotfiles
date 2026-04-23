@@ -68,6 +68,28 @@ switch-profile() {
     exec "${SHELL:-/bin/bash}" -l
 }
 
+if [ -n "${BASH_VERSION:-}" ]; then
+    _switch_profile_complete() {
+        local cur profiles_dir
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        profiles_dir="$HOME/.config/shell/profiles"
+
+        COMPREPLY=()
+        if [ -d "$profiles_dir" ]; then
+            while IFS= read -r profile_name; do
+                COMPREPLY+=("$profile_name")
+            done < <(
+                for profile_file in "$profiles_dir"/*.sh; do
+                    [ -e "$profile_file" ] || continue
+                    basename "$profile_file" .sh
+                done | command grep -E "^${cur:-}"
+            )
+        fi
+    }
+
+    complete -F _switch_profile_complete switch-profile
+fi
+
 _dotfiles_sync_fetch() {
     local remote="${1:-origin}"
     local dotfiles_dir="$HOME/.dotfiles"

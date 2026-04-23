@@ -1,6 +1,6 @@
 # Linux Native Dotfiles
 
-Modern shell configuration for Linux with automated dependency management.
+Modern Bash-first dotfiles for Linux with switchable shell profiles, safe cross-machine syncing, and optional auto-sync on shell startup.
 
 ## 🚀 Quick Start
 
@@ -19,7 +19,7 @@ The installer will:
 2. Install `make` and `git` if needed
 3. Install modern CLI tools (starship, zoxide, fzf, eza, bat)
 4. Create symbolic links to shell configuration
-5. Configure your `.bashrc` or `.zshrc`
+5. Configure your login and interactive shell entry points
 
 ## 📦 What's Included
 
@@ -34,6 +34,8 @@ The installer will:
 - **aliases.sh** - Common shortcuts and modern tool aliases
 - **functions.sh** - Useful shell functions (system updates, git helpers, etc.)
 - **exports.sh** - Environment variables and PATH configuration
+- **profiles/base.sh** - Shared default profile
+- **profiles/ctf.sh** - Optional CTF/audit helpers
 
 ## 🛠️ Manual Installation
 
@@ -47,6 +49,9 @@ make link
 # Configure shell initialization only
 make config
 
+# Validate links, profiles, and optional tools
+make doctor
+
 # Full installation
 make install
 ```
@@ -59,6 +64,7 @@ make install
 | `make deps` | Install modern CLI tools |
 | `make link` | Create symbolic links |
 | `make config` | Configure shell initialization |
+| `make doctor` | Validate links, profiles, and optional tools |
 | `make clean` | Remove symbolic links |
 | `make help` | Show all available targets |
 
@@ -93,13 +99,18 @@ make bat         # Install Bat
 ls          # eza with icons and git integration
 ll          # eza long format
 la          # eza all files
-cat         # bat with syntax highlighting
+bcat        # bat without replacing cat semantics
 
 # Git shortcuts
 g           # git
 gst         # git status
 pull        # git pull
 push        # git push
+
+# Dotfiles
+profile     # show active shell profile and auto-sync status
+switch ctf  # switch to the ctf profile and reload shell
+dsync       # sync ~/.dotfiles manually and reload if updated
 ```
 
 ### Powerful Functions
@@ -109,6 +120,7 @@ cleanup     # Clean package cache and temporary files
 mkcd        # Create directory and cd into it
 extract     # Universal archive extractor
 sysinfo     # Display system information
+dotfiles-sync  # Fast-forward ~/.dotfiles and reload shell when needed
 ```
 
 ### Environment Variables
@@ -133,11 +145,44 @@ Create local configuration files that won't be tracked by git:
 
 # Custom functions
 ~/.config/shell/functions.local.sh
+
+# Persisted profile selector (written by switch-profile)
+~/.config/shell/profile.local.sh
 ```
+
+### Profiles
+
+The shell now supports switchable profiles stored under `dotfiles/shell/profiles/`.
+
+```bash
+profile       # show current profile
+switch base   # shared default
+switch ctf    # enable CTF / audit helpers
+```
+
+`base` is intentionally minimal. `ctf` exposes extra helpers only when the profile is active, so the same repo stays usable on machines that do not have those tools installed.
+
+### Optional Auto-Sync
+
+Manual sync:
+
+```bash
+dsync
+```
+
+Optional auto-sync on shell startup is opt-in and intended for machine-local configuration:
+
+```bash
+# ~/.config/shell/exports.local.sh
+export DOTFILES_AUTO_SYNC=1
+export DOTFILES_AUTO_SYNC_INTERVAL=3600
+```
+
+This only runs in interactive shells, skips when local changes exist in `~/.dotfiles`, and reloads the shell only after a successful fast-forward update.
 
 ### Starship Configuration
 
-Edit `~/.config/starship.toml` to customize your prompt.
+Edit `~/.config/starship.toml` to customize your prompt. When `SHELL_PROFILE` is not `base`, the active profile is shown in the prompt.
 
 ## 🗑️ Uninstallation
 
@@ -158,6 +203,9 @@ make uninstall
 ├── cleanup-legacy.sh       # Legacy PowerShell cleanup script
 ├── README.md
 └── dotfiles/
+    ├── bash_profile
+    ├── profile
+    ├── bashrc
     └── shell/
         ├── aliases.sh      # Shell aliases
         ├── functions.sh    # Shell functions

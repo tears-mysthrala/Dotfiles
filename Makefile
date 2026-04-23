@@ -3,7 +3,7 @@
 # Modern shell environment with automated dependency management
 # ============================================================================
 
-.PHONY: all install deps link config starship zoxide fzf eza bat clean uninstall help
+.PHONY: all install deps link config doctor starship zoxide fzf eza bat clean uninstall help
 
 # Colors for output
 BLUE := \033[0;34m
@@ -30,6 +30,7 @@ help:
 	@echo "  $(GREEN)deps$(NC)        - Install modern CLI tools"
 	@echo "  $(GREEN)link$(NC)        - Create symbolic links"
 	@echo "  $(GREEN)config$(NC)      - Configure shell initialization"
+	@echo "  $(GREEN)doctor$(NC)      - Validate links, profiles, and optional tools"
 	@echo "  $(GREEN)clean$(NC)       - Remove symbolic links"
 	@echo "  $(GREEN)uninstall$(NC)   - Full uninstall (clean + remove deps)"
 	@echo "  $(GREEN)help$(NC)        - Show this help message"
@@ -57,6 +58,7 @@ link:
 	@ln -sf $(DOTFILES_DIR)/shell/aliases.sh $(SHELL_CONFIG_DIR)/aliases.sh
 	@ln -sf $(DOTFILES_DIR)/shell/functions.sh $(SHELL_CONFIG_DIR)/functions.sh
 	@ln -sf $(DOTFILES_DIR)/shell/exports.sh $(SHELL_CONFIG_DIR)/exports.sh
+	@ln -sfn $(DOTFILES_DIR)/shell/profiles $(SHELL_CONFIG_DIR)/profiles
 	# Link entry point files
 	@ln -sf $(DOTFILES_DIR)/bashrc $(HOME)/.bashrc
 	@ln -sf $(DOTFILES_DIR)/bash_profile $(HOME)/.bash_profile
@@ -76,6 +78,7 @@ clean:
 	@rm -f $(SHELL_CONFIG_DIR)/aliases.sh
 	@rm -f $(SHELL_CONFIG_DIR)/functions.sh
 	@rm -f $(SHELL_CONFIG_DIR)/exports.sh
+	@rm -rf $(SHELL_CONFIG_DIR)/profiles
 	@rm -f $(CONFIG_DIR)/starship.toml
 	@rm -f $(HOME)/.bashrc
 	@rm -f $(HOME)/.bash_profile
@@ -84,6 +87,45 @@ clean:
 	@echo "$(GREEN)✓ Symbolic links removed$(NC)"
 	@echo "$(YELLOW)Warning: Your original shell entry files have been removed$(NC)"
 	@echo "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
+
+doctor:
+	@echo "$(BLUE)Running dotfiles doctor...$(NC)"
+	@bash -lc '\
+	set -e; \
+	check_link() { \
+		path="$$1"; target="$$2"; \
+		if [ "$$(readlink "$$path" 2>/dev/null || true)" = "$$target" ]; then \
+			printf "%b✓%b %s -> %s\n" "$(GREEN)" "$(NC)" "$$path" "$$target"; \
+		else \
+			printf "%b!%b %s expected -> %s\n" "$(YELLOW)" "$(NC)" "$$path" "$$target"; \
+		fi; \
+	}; \
+	check_cmd() { \
+		name="$$1"; \
+		if command -v "$$name" >/dev/null 2>&1; then \
+			printf "%b✓%b optional tool: %s\n" "$(GREEN)" "$(NC)" "$$name"; \
+		else \
+			printf "%b!%b optional tool missing: %s\n" "$(YELLOW)" "$(NC)" "$$name"; \
+		fi; \
+	}; \
+	check_link "$(HOME)/.bashrc" "$(DOTFILES_DIR)/bashrc"; \
+	check_link "$(HOME)/.bash_profile" "$(DOTFILES_DIR)/bash_profile"; \
+	check_link "$(HOME)/.profile" "$(DOTFILES_DIR)/profile"; \
+	check_link "$(SHELL_CONFIG_DIR)/aliases.sh" "$(DOTFILES_DIR)/shell/aliases.sh"; \
+	check_link "$(SHELL_CONFIG_DIR)/functions.sh" "$(DOTFILES_DIR)/shell/functions.sh"; \
+	check_link "$(SHELL_CONFIG_DIR)/exports.sh" "$(DOTFILES_DIR)/shell/exports.sh"; \
+	check_link "$(SHELL_CONFIG_DIR)/profiles" "$(DOTFILES_DIR)/shell/profiles"; \
+	if [ -f "$(HOME)/.config/shell/profile.local.sh" ]; then \
+		printf "%b✓%b local profile selector present\n" "$(GREEN)" "$(NC)"; \
+	else \
+		printf "%b!%b local profile selector not set; defaulting to base\n" "$(YELLOW)" "$(NC)"; \
+	fi; \
+	for profile in "$(DOTFILES_DIR)/shell/profiles"/*.sh; do \
+		[ -e "$$profile" ] || continue; \
+		printf "%b✓%b profile available: %s\n" "$(GREEN)" "$(NC)" "$$(basename "$$profile" .sh)"; \
+	done; \
+	for cmd in starship zoxide fzf eza bat atuin mise; do check_cmd "$$cmd"; done; \
+	'
 
 uninstall: clean
 	@echo "$(YELLOW)To completely remove installed tools, run:$(NC)"
