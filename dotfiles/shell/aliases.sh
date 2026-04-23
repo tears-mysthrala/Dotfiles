@@ -202,6 +202,13 @@ alias whichcmd='which_cmd'
 alias switch='switch-profile'
 alias profile='profile-status'
 alias dsync='dotfiles-sync'
+alias claw='openclaw'
+alias clawstatus='claw-status'
+alias clawstart='claw-start'
+alias clawstop='claw-stop'
+alias clawrestart='claw-restart'
+alias clawchannels='claw-channels'
+alias clawlogs='claw-logs'
 
 # ============================================================================
 # Clipboard integration (lazy-loaded)

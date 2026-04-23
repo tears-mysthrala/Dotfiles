@@ -202,6 +202,30 @@ dotfiles-auto-sync() {
     _dotfiles_sync_run auto
 }
 
+claw-status() {
+    openclaw gateway status
+}
+
+claw-start() {
+    openclaw gateway start
+}
+
+claw-stop() {
+    openclaw gateway stop
+}
+
+claw-restart() {
+    openclaw gateway restart
+}
+
+claw-logs() {
+    openclaw channels logs "$@"
+}
+
+claw-channels() {
+    openclaw channels status --probe
+}
+
 # ============================================================================
 # Navigation Helpers
 # ============================================================================
