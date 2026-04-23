@@ -28,49 +28,95 @@ editor() {
     fi
 }
 
+profile-status() {
+    printf 'profile=%s\n' "${SHELL_PROFILE:-base}"
+    if [ -f "$HOME/.config/shell/profile.local.sh" ]; then
+        printf 'persisted=%s\n' "$HOME/.config/shell/profile.local.sh"
+    else
+        printf 'persisted=none\n'
+    fi
+}
+
+switch-profile() {
+    local profile_name="${1:-}"
+    local profiles_dir="$HOME/.config/shell/profiles"
+    local profile_file local_file
+
+    if [ -z "$profile_name" ]; then
+        echo "Usage: switch-profile <profile>" >&2
+        echo "Available profiles:" >&2
+        for profile_file in "$profiles_dir"/*.sh; do
+            [ -e "$profile_file" ] || continue
+            basename "$profile_file" .sh >&2
+        done
+        return 1
+    fi
+
+    profile_file="$profiles_dir/${profile_name}.sh"
+    if [ ! -f "$profile_file" ]; then
+        echo "Unknown profile: $profile_name" >&2
+        return 1
+    fi
+
+    local_file="$HOME/.config/shell/profile.local.sh"
+    mkdir -p "$HOME/.config/shell"
+    printf 'export SHELL_PROFILE=%q\n' "$profile_name" > "$local_file"
+    export SHELL_PROFILE="$profile_name"
+
+    echo "Switched shell profile to: $profile_name"
+    exec "${SHELL:-/bin/bash}" -l
+}
+
 # ============================================================================
 # Navigation Helpers
 # ============================================================================
 mkcd() {
+    if [ -z "${1:-}" ]; then
+        echo "Usage: mkcd <directory>" >&2
+        return 1
+    fi
     mkdir -p "$1" && cd "$1" || return 1
 }
 
 # ============================================================================
 # NVM Lazy Loading (significant speed improvement)
 # ============================================================================
-nvm() {
-    unset -f nvm node npm npx 2>/dev/null || true
+_load_nvm() {
     export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+        echo "nvm is not installed in $NVM_DIR" >&2
+        return 1
+    fi
+
     # shellcheck source=/dev/null
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+    source "$NVM_DIR/nvm.sh"
     # shellcheck source=/dev/null
     [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
+}
+
+nvm() {
+    unset -f nvm node npm npx 2>/dev/null || true
+    _load_nvm || return 1
     nvm "$@"
 }
 
 # Lazy load node, npm, npx to trigger NVM loading
 node() {
     unset -f node npm npx 2>/dev/null || true
-    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-    # shellcheck source=/dev/null
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-    node "$@"
+    _load_nvm || return 1
+    command node "$@"
 }
 
 npm() {
     unset -f node npm npx 2>/dev/null || true
-    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-    # shellcheck source=/dev/null
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-    npm "$@"
+    _load_nvm || return 1
+    command npm "$@"
 }
 
 npx() {
     unset -f node npm npx 2>/dev/null || true
-    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-    # shellcheck source=/dev/null
-    [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
-    npx "$@"
+    _load_nvm || return 1
+    command npx "$@"
 }
 
 # ============================================================================
@@ -432,7 +478,7 @@ cleanup() {
 # Network Utilities
 # ============================================================================
 localip() {
-    ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v 127.0.0.1
+    ip -o -4 addr show scope global | awk '{split($4, cidr, "/"); print cidr[1]}'
 }
 
 # ============================================================================
@@ -464,7 +510,11 @@ extract() {
 # Process Management
 # ============================================================================
 psgrep() {
-    ps aux | grep -v grep | grep -i -e VSZ -e "$@"
+    if [ -z "${1:-}" ]; then
+        echo "Usage: psgrep <pattern>" >&2
+        return 1
+    fi
+    ps aux | command grep -i --color=auto -e VSZ -e "$*"
 }
 
 killport() {
@@ -487,10 +537,14 @@ killport() {
 # Git Helpers
 # ============================================================================
 gitignore() {
-    curl -sL "https://www.gitignore.io/api/$*"
+    curl -fsSL "https://www.gitignore.io/api/$*"
 }
 
 gclonecd() {
+    if [ -z "${1:-}" ]; then
+        echo "Usage: gclonecd <repo>" >&2
+        return 1
+    fi
     git clone "$1" && cd "$(basename "$1" .git)" || return 1
 }
 
@@ -522,6 +576,10 @@ mkvenv() {
 # HTTP Server (Python)
 serve() {
     local port="${1:-8000}"
+    [[ "$port" =~ ^[0-9]+$ ]] || {
+        echo "Usage: serve [port]" >&2
+        return 1
+    }
     python3 -m http.server "$port"
 }
 
@@ -577,7 +635,7 @@ which_cmd() {
     
     type -a "$1"
     if command -v "$1" &>/dev/null; then
-        ls -lh "$(command -v "$1")"
+        command ls -lh "$(command -v "$1")"
     fi
 }
 
@@ -691,9 +749,25 @@ md5() {
 # ============================================================================
 dirs() {
     if [ $# -eq 0 ]; then
-        find . -type f 2>/dev/null
+        builtin dirs -v
     else
         find . -type f -name "$1" 2>/dev/null
+    fi
+}
+
+ports() {
+    if command -v ss &>/dev/null; then
+        ss -tulanp "$@"
+    else
+        netstat -tulanp "$@"
+    fi
+}
+
+dc() {
+    if command -v docker-compose &>/dev/null; then
+        command docker-compose "$@"
+    else
+        command docker compose "$@"
     fi
 }
 

@@ -37,7 +37,7 @@ alias .5='cd ../../../../..'
 # Editor Detection
 # ============================================================================
 alias v='editor'
-alias e='${VISUAL:-${EDITOR:-nano}}'
+alias e='editor'
 
 # ============================================================================
 # System Utilities
@@ -64,15 +64,14 @@ alias gl='git log --oneline --graph --decorate'
 # Docker Aliases
 # ============================================================================
 alias d='docker'
-alias dc='docker-compose'
 
 # ============================================================================
 # Modern Tool Replacements (Fast detection)
 # ============================================================================
 
-# Bat (better cat)
+# Bat helper
 if __has_fast bat; then
-    alias cat='bat --paging=never --style=plain'
+    alias bcat='bat --paging=never --style=plain'
     alias catt='bat --paging=always'
 fi
 
@@ -88,37 +87,25 @@ else
     alias la='ls -lAh --color=auto'
 fi
 
-# Fd (better find)
-__has_fast fd && alias find='fd'
-
-# Ripgrep (better grep)
-if __has_fast rg; then
-    alias grep='rg'
-else
-    alias grep='grep --color=auto'
-fi
-
-# ============================================================================
-# File Operations
-# ============================================================================
-alias mkcd='mkcd'
+# Keep standard tool semantics for compatibility.
+alias grep='grep --color=auto'
+__has_fast fd && alias fdf='fd'
+__has_fast rg && alias rga='rg'
 
 # ============================================================================
 # Network Utilities
 # ============================================================================
-alias pubip='curl -s http://ifconfig.me/ip'
-alias myip='curl -s http://ifconfig.me/ip'
+alias pubip='curl -fsSL https://ifconfig.me/ip'
+alias myip='curl -fsSL https://ifconfig.me/ip'
 
 # ============================================================================
 # System Information
 # ============================================================================
 alias uptime='uptime -p'
-alias ports='netstat -tulanp 2>/dev/null || ss -tulanp'
 
 # ============================================================================
 # Archive Extraction
 # ============================================================================
-alias unzip='unzip -q'
 alias untar='tar -xvf'
 
 # ============================================================================
@@ -158,48 +145,39 @@ alias mv='mv -i'
 # ============================================================================
 # These check on first use to avoid slow Windows PATH lookups
 df() {
-    unalias df 2>/dev/null || true
     if type -P duf &>/dev/null; then
-        alias df='duf'
+        command duf "$@"
     else
-        alias df='df -h'
+        command df -h "$@"
     fi
-    df "$@"
 }
 
 du() {
-    unalias du 2>/dev/null || true
     if type -P dust &>/dev/null; then
-        alias du='dust'
+        command dust "$@"
     else
-        alias du='du -h'
+        command du -h "$@"
     fi
-    du "$@"
 }
 
 # ============================================================================
 # Process management (lazy-loaded)
 # ============================================================================
 htop() {
-    unalias htop top 2>/dev/null || true
-    unset -f htop top 2>/dev/null || true
     if type -P btop &>/dev/null; then
-        alias htop='btop'
+        command btop "$@"
     elif type -P htop &>/dev/null; then
-        alias top='htop'
+        command htop "$@"
+    else
+        command top "$@"
     fi
-    htop "$@"
 }
 
 top() {
-    unalias top htop 2>/dev/null || true
-    unset -f top htop 2>/dev/null || true
     if type -P btop &>/dev/null; then
-        alias htop='btop'
-        btop "$@"
+        command btop "$@"
     elif type -P htop &>/dev/null; then
-        alias top='htop'
-        htop "$@"
+        command htop "$@"
     else
         command top "$@"
     fi
@@ -209,10 +187,8 @@ top() {
 # Lazygit (lazy-loaded)
 # ============================================================================
 lg() {
-    unset -f lg 2>/dev/null || true
     if type -P lazygit &>/dev/null; then
-        alias lg='lazygit'
-        lazygit "$@"
+        command lazygit "$@"
     else
         echo "lazygit not installed" >&2
         return 1
@@ -223,20 +199,17 @@ lg() {
 # File Search Helpers
 # ============================================================================
 alias whichcmd='which_cmd'
+alias switch='switch-profile'
+alias profile='profile-status'
 
 # ============================================================================
 # Clipboard integration (lazy-loaded)
 # ============================================================================
 pbcopy() {
-    unset -f pbcopy pbpaste 2>/dev/null || true
     if type -P xclip &>/dev/null; then
-        alias pbcopy='xclip -selection clipboard'
-        alias pbpaste='xclip -selection clipboard -o'
-        xclip -selection clipboard "$@"
+        command xclip -selection clipboard "$@"
     elif type -P wl-copy &>/dev/null; then
-        alias pbcopy='wl-copy'
-        alias pbpaste='wl-paste'
-        wl-copy "$@"
+        command wl-copy "$@"
     else
         echo "No clipboard tool found (xclip or wl-copy)" >&2
         return 1
@@ -244,45 +217,15 @@ pbcopy() {
 }
 
 pbpaste() {
-    unset -f pbcopy pbpaste 2>/dev/null || true
     if type -P xclip &>/dev/null; then
-        alias pbcopy='xclip -selection clipboard'
-        alias pbpaste='xclip -selection clipboard -o'
-        xclip -selection clipboard -o
+        command xclip -selection clipboard -o
     elif type -P wl-copy &>/dev/null; then
-        alias pbcopy='wl-copy'
-        alias pbpaste='wl-paste'
-        wl-paste
+        command wl-paste
     else
         echo "No clipboard tool found (xclip or wl-copy)" >&2
         return 1
     fi
 }
-
-# ============================================================================
-# CTF & Security Aliases
-# ============================================================================
-alias rsa='RsaCtfTool.py'
-alias rsa-solve='RsaCtfTool.py --publickey'
-alias factordb='python3 -m factordb'
-alias pinit='pwninit --template-path ~/.config/pwninit-template.py'
-alias check='checksec --file'
-alias gadgets='ropper --file'
-alias og='one_gadget'
-
-# OT/ICS Shortcuts
-alias modbus-scan='python3 ~/ctf-toolkit/attack/ot-exploits/modbus-scan-async.py'
-alias s7-scan='~/ctf-toolkit/attack/ot-exploits/s7-scan.sh'
-alias mqtt-scan='~/ctf-toolkit/attack/ot-exploits/mqtt-scan.sh'
-
-# Fast Scanning
-alias fscan='rustscan -a'
-alias rscan='rustscan -a'
-
-# Networking / Pivoting
-alias ligolo-proxy='/usr/local/bin/proxy'
-alias ligolo-agent='/usr/local/bin/agent'
-alias tunnel='chisel'
 
 # ============================================================================
 # Cleanup

@@ -59,6 +59,8 @@ link:
 	@ln -sf $(DOTFILES_DIR)/shell/exports.sh $(SHELL_CONFIG_DIR)/exports.sh
 	# Link entry point files
 	@ln -sf $(DOTFILES_DIR)/bashrc $(HOME)/.bashrc
+	@ln -sf $(DOTFILES_DIR)/bash_profile $(HOME)/.bash_profile
+	@ln -sf $(DOTFILES_DIR)/profile $(HOME)/.profile
 	@ln -sf $(DOTFILES_DIR)/zshrc $(HOME)/.zshrc
 	@echo "$(GREEN)✓ Symbolic links created$(NC)"
 
@@ -76,9 +78,11 @@ clean:
 	@rm -f $(SHELL_CONFIG_DIR)/exports.sh
 	@rm -f $(CONFIG_DIR)/starship.toml
 	@rm -f $(HOME)/.bashrc
+	@rm -f $(HOME)/.bash_profile
+	@rm -f $(HOME)/.profile
 	@rm -f $(HOME)/.zshrc
 	@echo "$(GREEN)✓ Symbolic links removed$(NC)"
-	@echo "$(YELLOW)Warning: Your original .bashrc/.zshrc have been removed$(NC)"
+	@echo "$(YELLOW)Warning: Your original shell entry files have been removed$(NC)"
 	@echo "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
 
 uninstall: clean

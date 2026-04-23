@@ -1,6 +1,11 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# Load ble.sh early so it can attach after the rest of the shell is configured.
+if [[ -t 0 && -t 1 ]] && [ -f "$HOME/.local/share/blesh/out/ble.sh" ]; then
+    source -- "$HOME/.local/share/blesh/out/ble.sh" --attach=none
+fi
+
 # Guarded source to keep the shell usable when optional components are missing.
 source_if_exists() {
     local file="$1"
@@ -35,6 +40,16 @@ for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
     [ -f "$file" ] && source "$file"
 done
 
+# Optional machine-local profile selection. This file is intended to stay out of git.
+source_if_exists "$HOME/.config/shell/profile.local.sh"
+
+export SHELL_PROFILE="${SHELL_PROFILE:-base}"
+if [ -f "$HOME/.config/shell/profiles/${SHELL_PROFILE}.sh" ]; then
+    source "$HOME/.config/shell/profiles/${SHELL_PROFILE}.sh"
+elif [ "$SHELL_PROFILE" != "base" ]; then
+    printf 'shell profile not found: %s\n' "$SHELL_PROFILE" >&2
+fi
+
 # ============================================================================
 # 3. Optimized tool initialization (replaces Omora's direct eval)
 # ============================================================================
@@ -57,7 +72,10 @@ fi
 
 # FZF — prefer native bash integration, fall back to system files
 if command -v fzf >/dev/null 2>&1; then
-    if eval "$(fzf --bash 2>/dev/null)"; then
+    if [[ -n "${BLE_VERSION:-}" ]]; then
+        ble-import -d integration/fzf-completion
+        ble-import -d integration/fzf-key-bindings
+    elif eval "$(fzf --bash 2>/dev/null)"; then
         true
     else
         [ -f /usr/share/fzf/completion.bash ]   && source /usr/share/fzf/completion.bash
@@ -74,11 +92,18 @@ fi
 # ============================================================================
 # 4. Local overrides (machine-specific, not tracked in git)
 # ============================================================================
+for file in "$HOME/.config/shell/"{exports,aliases,functions}.local.sh; do
+    [ -f "$file" ] && source "$file"
+done
 [ -f "$HOME/.bashrc.local" ] && source "$HOME/.bashrc.local"
 
 # Atuin shell history (if installed)
-if [ -f "$HOME/.atuin/bin/env" ]; then
-    . "$HOME/.atuin/bin/env"
+if [[ -t 0 && -t 1 ]] && command -v atuin >/dev/null 2>&1; then
     [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
     eval "$(atuin init bash)"
+fi
+
+# Attach ble.sh after prompt/history integrations are initialized.
+if [[ -t 0 && -t 1 && ${BLE_VERSION-} ]]; then
+    ble-attach
 fi

@@ -1,0 +1,5 @@
+# .bash_profile
+
+# Load login-scoped environment first, then the interactive shell config.
+[ -f "$HOME/.profile" ] && . "$HOME/.profile"
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"

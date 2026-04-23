@@ -15,6 +15,30 @@ _path_prepend() {
     esac
 }
 
+# Remove exact duplicate PATH entries while preserving the first occurrence.
+_path_dedupe() {
+    local old_path="$PATH"
+    local new_path="" entry
+
+    while [ -n "$old_path" ]; do
+        entry="${old_path%%:*}"
+        if [ "$old_path" = "$entry" ]; then
+            old_path=""
+        else
+            old_path="${old_path#*:}"
+        fi
+
+        [ -n "$entry" ] || continue
+
+        case ":${new_path}:" in
+            *:"$entry":*) ;;
+            *) new_path="${new_path:+$new_path:}$entry" ;;
+        esac
+    done
+
+    PATH="$new_path"
+}
+
 # ============================================================================
 # Editor Configuration
 # ============================================================================
@@ -30,7 +54,6 @@ fi
 # Language & Locale
 # ============================================================================
 export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
 export LANGUAGE="en_US.UTF-8"
 
 # ============================================================================
@@ -39,6 +62,7 @@ export LANGUAGE="en_US.UTF-8"
 # User binaries
 _path_prepend "$HOME/.local/bin"
 _path_prepend "$HOME/bin"
+_path_prepend "$HOME/.atuin/bin"
 
 # Development tools
 _path_prepend "$HOME/.opencode/bin"
@@ -101,7 +125,7 @@ fi
 # FZF Configuration (fast path detection)
 if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || type -P fzf &>/dev/null; then
     # Use fd for file listing if available (check common paths first for speed)
-    if [ -x "$HOME/.local/bin/fd" ]; then
+    if command -v fd >/dev/null 2>&1; then
         export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
         export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
         export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
@@ -131,7 +155,7 @@ if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || type -P fzf &>/dev/
     '
     
     # Add bat preview if available (check common paths first)
-    if [ -x "$HOME/.local/bin/bat" ]; then
+    if command -v bat >/dev/null 2>&1; then
         export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --preview 'bat --style=numbers --color=always --line-range :500 {}'"
     fi
 fi
@@ -164,8 +188,8 @@ fi
 # ============================================================================
 # History Configuration
 # ============================================================================
-export HISTSIZE=10000
-export HISTFILESIZE=20000
+export HISTSIZE=32768
+export HISTFILESIZE=32768
 export HISTCONTROL=ignoreboth:erasedups
 export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"
 export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
@@ -218,7 +242,10 @@ if [ -z "$SSH_AUTH_SOCK" ]; then
         eval "$(ssh-agent -s)" > "$SSH_AGENT_ENV" 2>/dev/null
     fi
 fi
-export GPG_TTY=$(tty)
+if [ -t 0 ]; then
+    export GPG_TTY
+    GPG_TTY=$(tty)
+fi
 
 # ============================================================================
 # Color Support
@@ -250,6 +277,9 @@ if command -v zoxide &>/dev/null; then
     export _ZO_DATA_DIR="$HOME/.local/share/zoxide"
     export _ZO_ECHO=1
 fi
+
+# Normalize PATH after all framework/tool initializers have had a chance to edit it.
+_path_dedupe
 
 # ============================================================================
 # CTF Performance Optimization

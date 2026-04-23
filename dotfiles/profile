@@ -1,0 +1,15 @@
+# .profile
+
+_profile_path_prepend() {
+    case ":${PATH}:" in
+        *:"$1":*) ;;
+        *) PATH="$1${PATH:+:$PATH}" ;;
+    esac
+}
+
+[ -d "$HOME/.local/bin" ] && _profile_path_prepend "$HOME/.local/bin"
+[ -d "$HOME/.atuin/bin" ] && _profile_path_prepend "$HOME/.atuin/bin"
+
+export PATH
+
+unset -f _profile_path_prepend
