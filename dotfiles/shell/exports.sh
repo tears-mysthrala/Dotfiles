@@ -100,6 +100,14 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CACHE_HOME="$HOME/.cache"
 export XDG_STATE_HOME="$HOME/.local/state"
 
+# OpenClaw / Codex CLI
+export OPENCLAW_NO_RESPAWN=1
+export NODE_COMPILE_CACHE="${XDG_CACHE_HOME}/openclaw-compile-cache"
+
+if [ ! -d "$NODE_COMPILE_CACHE" ]; then
+    mkdir -p "$NODE_COMPILE_CACHE" 2>/dev/null || true
+fi
+
 # ============================================================================
 # Omora / Omarchy Compatibility
 # ============================================================================
