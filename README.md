@@ -1,5 +1,7 @@
 # Linux Native Dotfiles
 
+[![Shell CI](https://github.com/tears-mysthrala/Dotfiles/actions/workflows/shell-ci.yml/badge.svg)](https://github.com/tears-mysthrala/Dotfiles/actions/workflows/shell-ci.yml)
+
 Modern Bash-first dotfiles for Linux with switchable shell profiles, safe cross-machine syncing, and optional auto-sync on shell startup.
 
 ## 🚀 Quick Start

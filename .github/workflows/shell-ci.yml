@@ -7,11 +7,29 @@ on:
   pull_request:
 
 jobs:
-  smoke:
+  syntax:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run shell smoke tests
-        run: bash tests/smoke.bash
+      - name: Run syntax checks
+        run: bash tests/smoke.bash syntax
+
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run doctor checks
+        run: bash tests/smoke.bash doctor
+
+  profiles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run profile smoke tests
+        run: bash tests/smoke.bash profiles
