@@ -52,6 +52,9 @@ make config
 # Validate links, profiles, and optional tools
 make doctor
 
+# Run shell smoke tests
+make test
+
 # Full installation
 make install
 ```
@@ -65,6 +68,7 @@ make install
 | `make link` | Create symbolic links |
 | `make config` | Configure shell initialization |
 | `make doctor` | Validate links, profiles, and optional tools |
+| `make test` | Run shell smoke tests |
 | `make clean` | Remove symbolic links |
 | `make help` | Show all available targets |
 

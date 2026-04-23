@@ -3,7 +3,7 @@
 # Modern shell environment with automated dependency management
 # ============================================================================
 
-.PHONY: all install deps link config doctor starship zoxide fzf eza bat clean uninstall help
+.PHONY: all install deps link config doctor test starship zoxide fzf eza bat clean uninstall help
 
 # Colors for output
 BLUE := \033[0;34m
@@ -31,6 +31,7 @@ help:
 	@echo "  $(GREEN)link$(NC)        - Create symbolic links"
 	@echo "  $(GREEN)config$(NC)      - Configure shell initialization"
 	@echo "  $(GREEN)doctor$(NC)      - Validate links, profiles, and optional tools"
+	@echo "  $(GREEN)test$(NC)        - Run shell smoke tests"
 	@echo "  $(GREEN)clean$(NC)       - Remove symbolic links"
 	@echo "  $(GREEN)uninstall$(NC)   - Full uninstall (clean + remove deps)"
 	@echo "  $(GREEN)help$(NC)        - Show this help message"
@@ -126,6 +127,9 @@ doctor:
 	done; \
 	for cmd in starship zoxide fzf eza bat atuin mise; do check_cmd "$$cmd"; done; \
 	'
+
+test:
+	@bash tests/smoke.bash
 
 uninstall: clean
 	@echo "$(YELLOW)To completely remove installed tools, run:$(NC)"
