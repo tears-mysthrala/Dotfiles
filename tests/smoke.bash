@@ -9,6 +9,7 @@ mode="${1:-all}"
 export HOME="$tmp_home"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 unset OMORA_PATH OMARCHY_PATH SHELL_PROFILE DOTFILES_AUTO_SYNC DOTFILES_AUTO_SYNC_RUNNING
+export DOTFILES_SKIP_MISE=1
 
 assert_contains() {
     local haystack="$1"

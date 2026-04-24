@@ -56,7 +56,7 @@ fi
 source_if_exists "$HOME/.config/shell/optimized-tools.sh"
 
 # Mise (runtime manager — from Omora base)
-if command -v mise >/dev/null 2>&1; then
+if [[ "${DOTFILES_SKIP_MISE:-0}" != "1" ]] && command -v mise >/dev/null 2>&1; then
     eval "$(mise activate bash)"
 fi
 
