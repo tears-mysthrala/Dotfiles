@@ -317,7 +317,7 @@ _upgrade_fix_cmd() {
         npm\ globals) echo "npm install -g npm@latest" ;;
         gem)          echo "sudo dnf install ruby-devel && gem update" ;;
         cargo)        echo "cargo install cargo-update" ;;
-        mise)         echo "mise self-update && mise upgrade" ;;
+        mise)         echo "MISE_SELF_UPDATE=1 mise self-update --yes --no-plugins && mise upgrade" ;;
         pyenv)        echo "cd \${PYENV_ROOT:-\$HOME/.pyenv} && git pull" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
@@ -345,13 +345,13 @@ _upgrade_run_step() {
         _upgrade_results+=("  ✅ $(printf '%-14s' "$name")  $elapsed_fmt$note")
     else
         fix_cmd=$(_upgrade_fix_cmd "$name")
-        _upgrade_results+=("  ❌ $(printf '%-14s' "$name")  $elapsed_fmt")
+        _upgrade_results+=("  ❌ $(printf '%-14s' "$name")  $elapsed_fmt$note")
         _upgrade_errors+=("  $name → $fix_cmd")
     fi
 }
 
 _upgrade_system() {
-    local _askpass _sudo_pipe
+    local _askpass="" _sudo_pipe
     if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
         _askpass=$(mktemp)
         printf '#!/bin/sh\nprintf "%%s\n" "%s"\n' "$DOTFILES_SUDO_PASS" > "$_askpass"
@@ -389,7 +389,7 @@ _upgrade_system() {
         rc=1
     fi
 
-    [[ -n "$_askpass" ]] && rm -f "$_askpass"
+    [[ -n "$_askpass" ]] && rm -f -- "$_askpass"
     unset -f _sudo_pipe
     return $rc
 }
@@ -462,7 +462,9 @@ _upgrade_flatpak() {
 
 _upgrade_mise() {
     command -v mise &>/dev/null || return 0
-    mise self-update --yes 2>/dev/null || true  # falla si ya es la última versión, no es error
+    if [[ "${MISE_SELF_UPDATE:-0}" == "1" ]]; then
+        mise self-update --yes --no-plugins 2>/dev/null || true
+    fi
     mise upgrade
 }
 
