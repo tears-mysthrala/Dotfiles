@@ -253,6 +253,26 @@ _load_nvm() {
     [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
 }
 
+_load_node_runtime() {
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+    if [ -s "$NVM_DIR/nvm.sh" ]; then
+        _load_nvm
+        return $?
+    fi
+
+    # This host currently gets Node from mise. The lazy wrappers below remove
+    # themselves before calling this helper, so command lookup sees real shims.
+    if command -v node >/dev/null 2>&1 || \
+       command -v npm >/dev/null 2>&1 || \
+       command -v npx >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "No node runtime found: nvm is not installed in $NVM_DIR and node/npm/npx are not on PATH" >&2
+    return 1
+}
+
 nvm() {
     unset -f nvm node npm npx 2>/dev/null || true
     _load_nvm || return 1
@@ -262,19 +282,19 @@ nvm() {
 # Lazy load node, npm, npx to trigger NVM loading
 node() {
     unset -f node npm npx 2>/dev/null || true
-    _load_nvm || return 1
+    _load_node_runtime || return 1
     command node "$@"
 }
 
 npm() {
     unset -f node npm npx 2>/dev/null || true
-    _load_nvm || return 1
+    _load_node_runtime || return 1
     command npm "$@"
 }
 
 npx() {
     unset -f node npm npx 2>/dev/null || true
-    _load_nvm || return 1
+    _load_node_runtime || return 1
     command npx "$@"
 }
 
@@ -314,7 +334,7 @@ _upgrade_exec_shell() {
 _upgrade_fix_cmd() {
     case "$1" in
         system)       echo "yay -Syu --overwrite '*'  # or your distro equivalent" ;;
-        npm\ globals) echo "npm install -g npm@latest" ;;
+        npm\ globals) echo "npm_config_prefix=\$HOME/.npm-global npm update -g" ;;
         gem)          echo "sudo dnf install ruby-devel && gem update" ;;
         cargo)        echo "cargo install cargo-update" ;;
         mise)         echo "MISE_SELF_UPDATE=1 mise self-update --yes --no-plugins && mise upgrade" ;;
@@ -452,7 +472,9 @@ _upgrade_pipx() {
 
 _upgrade_npm() {
     command -v npm &>/dev/null || return 0
-    npm update -g
+    local npm_prefix="$HOME/.npm-global"
+    mkdir -p "$npm_prefix"
+    npm_config_prefix="$npm_prefix" npm update -g
 }
 
 _upgrade_flatpak() {

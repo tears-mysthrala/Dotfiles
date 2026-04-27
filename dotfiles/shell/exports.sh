@@ -67,6 +67,7 @@ _path_prepend "$HOME/.atuin/bin"
 # Development tools
 _path_prepend "$HOME/.opencode/bin"
 _path_prepend "$HOME/.npm-global/bin"
+export npm_config_prefix="$HOME/.npm-global"
 
 # Cargo (Rust)
 if [ -d "$HOME/.cargo/bin" ]; then
