@@ -457,7 +457,8 @@ _upgrade_pnpm() {
 
 _upgrade_bun() {
     command -v bun &>/dev/null || return 0
-    bun update -g
+    # Update bun runtime; global packages handled separately if any exist
+    bun upgrade 2>/dev/null || true
 }
 
 _upgrade_flatpak() {
@@ -487,12 +488,16 @@ _upgrade_brew() {
 
 _upgrade_pacdiff() {
     command -v pacdiff &>/dev/null || return 0
+    local files
+    files=$(pacdiff --output --pacmandb 2>/dev/null) || true
+    [[ -n "$files" ]] || return 0
     sudo --preserve-env=DIFFPROG pacdiff --nobackup
 }
 
 _upgrade_fwupdmgr() {
     command -v fwupdmgr &>/dev/null || return 0
-    fwupdmgr refresh && fwupdmgr get-updates
+    fwupdmgr refresh --force 2>/dev/null || fwupdmgr refresh 2>/dev/null || true
+    fwupdmgr get-updates 2>/dev/null || true
 }
 
 _upgrade_tmux() {
@@ -528,6 +533,10 @@ _upgrade_gh() {
 
 _upgrade_gcloud() {
     command -v gcloud &>/dev/null || return 0
+    if gcloud components update --quiet 2>&1 | grep -q "managed by an external package manager"; then
+        _UPGRADE_STEP_NOTE="pacman-managed gcloud → skip"
+        return 0
+    fi
     gcloud components update --quiet
 }
 
@@ -546,6 +555,10 @@ _upgrade_docker() {
 
 _upgrade_pi() {
     command -v pi &>/dev/null || return 0
+    if pi update 2>&1 | grep -q "cannot self-update this installation"; then
+        _UPGRADE_STEP_NOTE="npx-managed pi → skip"
+        return 0
+    fi
     pi update
 }
 
