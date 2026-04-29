@@ -461,6 +461,16 @@ _upgrade_bun() {
     bun upgrade 2>/dev/null || true
 }
 
+_upgrade_npx() {
+    command -v npx &>/dev/null || return 0
+    [[ -d "$HOME/.npm/_npx" ]] || return 0
+    local count
+    count=$(find "$HOME/.npm/_npx" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+    [[ "$count" -gt 0 ]] || return 0
+    rm -rf "$HOME/.npm/_npx"/*
+    _UPGRADE_STEP_NOTE="cleared $count cached package(s)"
+}
+
 _upgrade_flatpak() {
     command -v flatpak &>/dev/null || return 0
     flatpak update -y
@@ -675,6 +685,7 @@ upgrade() {
         "yarn:_upgrade_yarn"
         "pnpm:_upgrade_pnpm"
         "bun:_upgrade_bun"
+        "npx:_upgrade_npx"
         "flatpak:_upgrade_flatpak"
         "tldr:_upgrade_tldr"
         "nvim:_upgrade_nvim"
