@@ -333,12 +333,30 @@ _upgrade_exec_shell() {
 
 _upgrade_fix_cmd() {
     case "$1" in
-        system)       echo "yay -Syu --overwrite '*'  # or your distro equivalent" ;;
-        npm\ globals) echo "npm_config_prefix=\$HOME/.npm-global npm update -g" ;;
-        gem)          echo "sudo dnf install ruby-devel && gem update" ;;
-        cargo)        echo "cargo install cargo-update" ;;
+        system)       echo "yay -Syu --noconfirm  # o tu gestor de distro" ;;
+        brew)         echo "brew update && brew upgrade" ;;
+        pacdiff)      echo "sudo pacdiff" ;;
+        firmware)     echo "fwupdmgr refresh && fwupdmgr update" ;;
+        tmux)         echo "~/.tmux/plugins/tpm/bin/update_plugins all" ;;
+        hyprpm)       echo "hyprpm update" ;;
         mise)         echo "MISE_SELF_UPDATE=1 mise self-update --yes --no-plugins && mise upgrade" ;;
         pyenv)        echo "cd \${PYENV_ROOT:-\$HOME/.pyenv} && git pull" ;;
+        flutter)      echo "flutter upgrade" ;;
+        pi)           echo "pi update" ;;
+        uv)           echo "uv self update && uv tool upgrade --all" ;;
+        pipx)         echo "pipx upgrade-all" ;;
+        cargo)        echo "cargo install cargo-update" ;;
+        gem)          echo "sudo dnf install ruby-devel && gem update" ;;
+        npm)          echo "npm_config_prefix=\$HOME/.npm-global npm update -g" ;;
+        yarn)         echo "yarn global upgrade" ;;
+        pnpm)         echo "pnpm update -g" ;;
+        bun)          echo "bun update -g" ;;
+        flatpak)      echo "flatpak update -y" ;;
+        tldr)         echo "tldr --update" ;;
+        nvim)         echo "nvim --headless '+Lazy! sync' +qa" ;;
+        gh)           echo "gh extension upgrade --all" ;;
+        gcloud)       echo "gcloud components update --quiet" ;;
+        claude)       echo "claude update" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
     esac
@@ -370,6 +388,167 @@ _upgrade_run_step() {
     fi
 }
 
+_upgrade_uv() {
+    command -v uv &>/dev/null || return 0
+    uv self update 2>/dev/null || true
+    uv tool upgrade --all
+}
+
+_upgrade_gem() {
+    local gem_bin ruby_bin
+    gem_bin=$(type -ap gem 2>/dev/null | grep -v '^/mnt/' | head -1)
+    ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
+    [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
+
+    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
+        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
+    fi
+
+    local hdrdir
+    hdrdir=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
+    if [[ ! -f "${hdrdir}/ruby.h" ]]; then
+        _UPGRADE_STEP_NOTE="ruby-devel faltante → sudo dnf install ruby-devel"
+        return 1
+    fi
+
+    "$gem_bin" update
+    local rc=$?
+
+    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
+        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
+    fi
+
+    "$gem_bin" cleanup 2>/dev/null || true
+    return $rc
+}
+
+_upgrade_cargo() {
+    command -v cargo &>/dev/null || return 0
+    if ! command -v cargo-install-update &>/dev/null; then
+        _UPGRADE_STEP_NOTE="cargo-install-update no encontrado — instala con: cargo install cargo-update"
+        return 0
+    fi
+    cargo install-update -a
+}
+
+_upgrade_pipx() {
+    local pipx_bin
+    pipx_bin=$(type -ap pipx 2>/dev/null | grep -v '^/mnt/' | head -1)
+    [[ -n "$pipx_bin" ]] || return 0
+    (cd "$HOME" && "$pipx_bin" upgrade-all)
+}
+
+_upgrade_npm() {
+    command -v npm &>/dev/null || return 0
+    local npm_prefix="$HOME/.npm-global"
+    mkdir -p "$npm_prefix"
+    npm_config_prefix="$npm_prefix" npm update -g
+}
+
+_upgrade_yarn() {
+    command -v yarn &>/dev/null || return 0
+    yarn global upgrade
+}
+
+_upgrade_pnpm() {
+    command -v pnpm &>/dev/null || return 0
+    pnpm update -g
+}
+
+_upgrade_bun() {
+    command -v bun &>/dev/null || return 0
+    bun update -g
+}
+
+_upgrade_flatpak() {
+    command -v flatpak &>/dev/null || return 0
+    flatpak update -y
+}
+
+_upgrade_mise() {
+    command -v mise &>/dev/null || return 0
+    if [[ "${MISE_SELF_UPDATE:-0}" == "1" ]]; then
+        mise self-update --yes --no-plugins 2>/dev/null || true
+    fi
+    mise upgrade
+}
+
+_upgrade_pyenv() {
+    command -v pyenv &>/dev/null || return 0
+    local pyenv_root="${PYENV_ROOT:-$HOME/.pyenv}"
+    [[ -d "$pyenv_root/.git" ]] || return 0
+    git -C "$pyenv_root" pull --rebase --autostash
+}
+
+_upgrade_brew() {
+    command -v brew &>/dev/null || return 0
+    brew update && brew upgrade --formula && brew upgrade --cask
+}
+
+_upgrade_pacdiff() {
+    command -v pacdiff &>/dev/null || return 0
+    sudo --preserve-env=DIFFPROG pacdiff --nobackup
+}
+
+_upgrade_fwupdmgr() {
+    command -v fwupdmgr &>/dev/null || return 0
+    fwupdmgr refresh && fwupdmgr get-updates
+}
+
+_upgrade_tmux() {
+    local tpm="$HOME/.tmux/plugins/tpm/bin/update_plugins"
+    [[ -x "$tpm" ]] || return 0
+    "$tpm" all
+}
+
+_upgrade_hyprpm() {
+    command -v hyprpm &>/dev/null || return 0
+    hyprpm update
+}
+
+_upgrade_flutter() {
+    command -v flutter &>/dev/null || return 0
+    flutter upgrade
+}
+
+_upgrade_tldr() {
+    command -v tldr &>/dev/null || return 0
+    tldr --update
+}
+
+_upgrade_nvim() {
+    command -v nvim &>/dev/null || return 0
+    nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
+}
+
+_upgrade_gh() {
+    command -v gh &>/dev/null || return 0
+    gh extension upgrade --all
+}
+
+_upgrade_gcloud() {
+    command -v gcloud &>/dev/null || return 0
+    gcloud components update --quiet
+}
+
+_upgrade_claude() {
+    command -v claude &>/dev/null || return 0
+    claude update && claude plugin marketplace update
+}
+
+_upgrade_docker() {
+    command -v docker &>/dev/null || return 0
+    local images
+    images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>' || true)
+    [[ -n "$images" ]] || return 0
+    echo "$images" | xargs -r -n1 docker pull
+}
+
+_upgrade_pi() {
+    command -v pi &>/dev/null || return 0
+    pi update
+}
+
 _upgrade_system() {
     local _askpass="" _sudo_pipe
     if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
@@ -383,6 +562,7 @@ _upgrade_system() {
 
     local rc=0
     if command -v yay &>/dev/null; then
+        yay -Pw 2>/dev/null || true
         if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
             SUDO_ASKPASS="$_askpass" yay -Syu --noconfirm --sudoflags="-A" || rc=$?
         else
@@ -412,89 +592,6 @@ _upgrade_system() {
     [[ -n "$_askpass" ]] && rm -f -- "$_askpass"
     unset -f _sudo_pipe
     return $rc
-}
-
-_upgrade_uv() {
-    command -v uv &>/dev/null || return 0
-    uv tool upgrade --all
-}
-
-_upgrade_gem() {
-    # Use Linux gem/ruby explicitly — skip Windows Ruby binaries mounted at /mnt/
-    local gem_bin ruby_bin
-    gem_bin=$(type -ap gem 2>/dev/null | grep -v '^/mnt/' | head -1)
-    ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
-    [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
-
-    # Fedora already ships rdoc; a user-installed copy causes duplicate
-    # constant warnings during gem operations.
-    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
-        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
-    fi
-
-    # Check ruby development headers (needed to compile native extensions)
-    local hdrdir
-    hdrdir=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
-    if [[ ! -f "${hdrdir}/ruby.h" ]]; then
-        _UPGRADE_STEP_NOTE="ruby-devel faltante → sudo dnf install ruby-devel"
-        return 1
-    fi
-
-    "$gem_bin" update
-    local rc=$?
-
-    # gem update reinstalls rdoc in user-space; remove it again so Fedora's
-    # system rdoc remains the only active copy.
-    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
-        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
-    fi
-
-    "$gem_bin" cleanup 2>/dev/null || true
-    return $rc
-}
-
-_upgrade_cargo() {
-    command -v cargo &>/dev/null || return 0
-    if ! command -v cargo-install-update &>/dev/null; then
-        _UPGRADE_STEP_NOTE="cargo-install-update no encontrado — instala con: cargo install cargo-update"
-        return 0
-    fi
-    cargo install-update -a
-}
-
-_upgrade_pipx() {
-    local pipx_bin
-    pipx_bin=$(type -ap pipx 2>/dev/null | grep -v '^/mnt/' | head -1)
-    [[ -n "$pipx_bin" ]] || return 0
-    # Run from $HOME to avoid WSL UNC path (\\wsl.localhost\...) breaking CMD.EXE
-    (cd "$HOME" && "$pipx_bin" upgrade-all)
-}
-
-_upgrade_npm() {
-    command -v npm &>/dev/null || return 0
-    local npm_prefix="$HOME/.npm-global"
-    mkdir -p "$npm_prefix"
-    npm_config_prefix="$npm_prefix" npm update -g
-}
-
-_upgrade_flatpak() {
-    command -v flatpak &>/dev/null || return 0
-    flatpak update -y
-}
-
-_upgrade_mise() {
-    command -v mise &>/dev/null || return 0
-    if [[ "${MISE_SELF_UPDATE:-0}" == "1" ]]; then
-        mise self-update --yes --no-plugins 2>/dev/null || true
-    fi
-    mise upgrade
-}
-
-_upgrade_pyenv() {
-    command -v pyenv &>/dev/null || return 0
-    local pyenv_root="${PYENV_ROOT:-$HOME/.pyenv}"
-    [[ -d "$pyenv_root/.git" ]] || return 0
-    git -C "$pyenv_root" pull --rebase --autostash
 }
 
 _upgrade_dotfiles() {
@@ -540,21 +637,35 @@ _upgrade_dotfiles() {
 }
 
 upgrade() {
-    # Reset state
     _upgrade_results=()
     _upgrade_errors=()
     _UPGRADE_DOTFILES_CHANGED=0
 
     local -a steps=(
         "system:_upgrade_system"
-        "uv tools:_upgrade_uv"
-        "gem:_upgrade_gem"
-        "cargo:_upgrade_cargo"
-        "pipx:_upgrade_pipx"
-        "npm globals:_upgrade_npm"
-        "flatpak:_upgrade_flatpak"
+        "brew:_upgrade_brew"
+        "pacdiff:_upgrade_pacdiff"
+        "firmware:_upgrade_fwupdmgr"
+        "tmux:_upgrade_tmux"
+        "hyprpm:_upgrade_hyprpm"
         "mise:_upgrade_mise"
         "pyenv:_upgrade_pyenv"
+        "flutter:_upgrade_flutter"
+        "pi:_upgrade_pi"
+        "uv:_upgrade_uv"
+        "pipx:_upgrade_pipx"
+        "cargo:_upgrade_cargo"
+        "gem:_upgrade_gem"
+        "npm:_upgrade_npm"
+        "yarn:_upgrade_yarn"
+        "pnpm:_upgrade_pnpm"
+        "bun:_upgrade_bun"
+        "flatpak:_upgrade_flatpak"
+        "tldr:_upgrade_tldr"
+        "nvim:_upgrade_nvim"
+        "gh:_upgrade_gh"
+        "gcloud:_upgrade_gcloud"
+        "claude:_upgrade_claude"
         "dotfiles:_upgrade_dotfiles"
     )
 
@@ -572,7 +683,6 @@ upgrade() {
         _upgrade_run_step "$name" "$fn"
     done
 
-    # Deferred summary
     local sep="──────────────────────────────────────────"
     echo
     echo "$sep"
@@ -595,14 +705,12 @@ upgrade() {
     fi
     echo "$sep"
 
-    # Re-source dotfiles if they changed
     if [[ $_UPGRADE_DOTFILES_CHANGED -eq 1 ]]; then
         echo
         echo "♻️  Reiniciando shell para aplicar cambios en dotfiles..."
         _upgrade_exec_shell
     fi
 
-    # Cleanup globals
     unset _upgrade_results _upgrade_errors _UPGRADE_DOTFILES_CHANGED _UPGRADE_STEP_NOTE
 }
 
