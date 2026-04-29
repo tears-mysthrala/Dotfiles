@@ -641,10 +641,12 @@ upgrade() {
     _upgrade_errors=()
     _UPGRADE_DOTFILES_CHANGED=0
 
+    # Cache sudo credentials once so subcommands don't re-prompt
+    sudo -v 2>/dev/null || true
+
     local -a steps=(
         "system:_upgrade_system"
         "brew:_upgrade_brew"
-        "pacdiff:_upgrade_pacdiff"
         "firmware:_upgrade_fwupdmgr"
         "tmux:_upgrade_tmux"
         "hyprpm:_upgrade_hyprpm"
@@ -667,6 +669,7 @@ upgrade() {
         "gcloud:_upgrade_gcloud"
         "claude:_upgrade_claude"
         "dotfiles:_upgrade_dotfiles"
+        "pacdiff:_upgrade_pacdiff"
     )
 
     local total=${#steps[@]}
