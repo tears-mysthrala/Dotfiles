@@ -331,6 +331,37 @@ _upgrade_exec_shell() {
     exec "$shell_bin" -l
 }
 
+_upgrade_sudo_keepalive_start() {
+    local __pid_var="$1"
+    printf -v "$__pid_var" ''
+
+    command -v sudo >/dev/null 2>&1 || return 0
+
+    # If upgrade's privileged Arch path is already covered by NOPASSWD, avoid
+    # sudo -v entirely so the command can start without an authentication prompt.
+    if command -v pacman >/dev/null 2>&1 && sudo -n pacman --version >/dev/null 2>&1; then
+        return 0
+    fi
+
+    sudo -v || return 0
+
+    (
+        while true; do
+            sleep 60
+            sudo -n -v >/dev/null 2>&1 || exit 0
+        done
+    ) &
+    printf -v "$__pid_var" '%s' "$!"
+}
+
+_upgrade_sudo_keepalive_stop() {
+    local pid="${1:-}"
+    [[ -n "$pid" ]] || return 0
+
+    kill "$pid" >/dev/null 2>&1 || true
+    wait "$pid" 2>/dev/null || true
+}
+
 _upgrade_fix_cmd() {
     case "$1" in
         system)       echo "yay -Syu --noconfirm  # o tu gestor de distro" ;;
@@ -664,8 +695,7 @@ upgrade() {
     _upgrade_errors=()
     _UPGRADE_DOTFILES_CHANGED=0
 
-    # Cache sudo credentials once so subcommands don't re-prompt
-    sudo -v 2>/dev/null || true
+    local _upgrade_sudo_keepalive_pid=""
 
     local -a steps=(
         "system:_upgrade_system"
@@ -702,6 +732,8 @@ upgrade() {
     echo "🔄 Actualizando sistema..."
     echo
 
+    _upgrade_sudo_keepalive_start _upgrade_sudo_keepalive_pid
+
     for step in "${steps[@]}"; do
         name="${step%%:*}"
         fn="${step##*:}"
@@ -709,6 +741,8 @@ upgrade() {
         printf "[%d/%d] %s...\n" "$i" "$total" "$name"
         _upgrade_run_step "$name" "$fn"
     done
+
+    _upgrade_sudo_keepalive_stop "$_upgrade_sudo_keepalive_pid"
 
     local sep="──────────────────────────────────────────"
     echo
@@ -738,7 +772,7 @@ upgrade() {
         _upgrade_exec_shell
     fi
 
-    unset _upgrade_results _upgrade_errors _UPGRADE_DOTFILES_CHANGED _UPGRADE_STEP_NOTE
+    unset _upgrade_results _upgrade_errors _UPGRADE_DOTFILES_CHANGED _UPGRADE_STEP_NOTE _upgrade_sudo_keepalive_pid
 }
 
 # ============================================================================
