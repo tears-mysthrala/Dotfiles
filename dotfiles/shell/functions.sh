@@ -366,7 +366,7 @@ _upgrade_fix_cmd() {
     case "$1" in
         system)       echo "yay -Syu --noconfirm  # o tu gestor de distro" ;;
         brew)         echo "brew update && brew upgrade" ;;
-        pacdiff)      echo "sudo pacdiff" ;;
+        pacdiff)      echo "pacdiff --sudo --backup" ;;
         firmware)     echo "fwupdmgr refresh && fwupdmgr update" ;;
         tmux)         echo "~/.tmux/plugins/tpm/bin/update_plugins all" ;;
         hyprpm)       echo "hyprpm update" ;;
@@ -532,7 +532,7 @@ _upgrade_pacdiff() {
     local files
     files=$(pacdiff --output --pacmandb 2>/dev/null) || true
     [[ -n "$files" ]] || return 0
-    sudo --preserve-env=DIFFPROG pacdiff --nobackup
+    pacdiff --sudo --backup
 }
 
 _upgrade_fwupdmgr() {
