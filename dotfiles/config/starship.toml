@@ -1,8 +1,8 @@
 add_newline = true
 command_timeout = 200
-format = "[$custom.profile_base$directory$git_branch$git_status]($style)$character"
+format = "[$custom.shell_profile$directory$git_branch$git_status]($style)$character"
 
-[custom.profile_base]
+[custom.shell_profile]
 when = "test \"${SHELL_PROFILE:-base}\" != base"
 command = "printf '%s' \"${SHELL_PROFILE}\""
 format = "[$output]($style) "

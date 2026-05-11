@@ -39,6 +39,17 @@ for file in "$HOME/.config/shell/"{exports,aliases,functions}.sh; do
     [ -f "$file" ] && source "$file"
 done
 
+# Optional machine-local profile selection. This mirrors bashrc so profiles
+# apply consistently across shells.
+[ -f "$HOME/.config/shell/profile.local.sh" ] && source "$HOME/.config/shell/profile.local.sh"
+
+export SHELL_PROFILE="${SHELL_PROFILE:-base}"
+if [ -f "$HOME/.config/shell/profiles/${SHELL_PROFILE}.sh" ]; then
+    source "$HOME/.config/shell/profiles/${SHELL_PROFILE}.sh"
+elif [ "$SHELL_PROFILE" != "base" ]; then
+    printf 'shell profile not found: %s\n' "$SHELL_PROFILE" >&2
+fi
+
 # ============================================================================
 # Load Optimized Tool Initializers
 # ============================================================================
