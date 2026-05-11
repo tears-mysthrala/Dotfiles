@@ -1,8 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ============================================================================
 # Environment Variables - Linux Native (OPTIMIZED)
-# Compatible with: Bash 4.0+, Zsh 5.0+
+# POSIX-friendly environment layer. Interactive Bash/Zsh behavior lives in
+# bashrc, zshrc, aliases.sh, functions.sh, and optimized-tools.sh.
 # ============================================================================
+
+if [ "${DOTFILES_EXPORTS_LOADED:-0}" = "1" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+export DOTFILES_EXPORTS_LOADED=1
 
 # ============================================================================
 # Helper Functions
@@ -17,26 +23,26 @@ _path_prepend() {
 
 # Remove exact duplicate PATH entries while preserving the first occurrence.
 _path_dedupe() {
-    local old_path="$PATH"
-    local new_path="" entry
+    _path_dedupe_old_path="$PATH"
+    _path_dedupe_new_path=""
 
-    while [ -n "$old_path" ]; do
-        entry="${old_path%%:*}"
-        if [ "$old_path" = "$entry" ]; then
-            old_path=""
+    while [ -n "$_path_dedupe_old_path" ]; do
+        _path_dedupe_entry="${_path_dedupe_old_path%%:*}"
+        if [ "$_path_dedupe_old_path" = "$_path_dedupe_entry" ]; then
+            _path_dedupe_old_path=""
         else
-            old_path="${old_path#*:}"
+            _path_dedupe_old_path="${_path_dedupe_old_path#*:}"
         fi
 
-        [ -n "$entry" ] || continue
+        [ -n "$_path_dedupe_entry" ] || continue
 
-        case ":${new_path}:" in
-            *:"$entry":*) ;;
-            *) new_path="${new_path:+$new_path:}$entry" ;;
+        case ":${_path_dedupe_new_path}:" in
+            *:"$_path_dedupe_entry":*) ;;
+            *) _path_dedupe_new_path="${_path_dedupe_new_path:+$_path_dedupe_new_path:}$_path_dedupe_entry" ;;
         esac
     done
 
-    PATH="$new_path"
+    PATH="$_path_dedupe_new_path"
 }
 
 # ============================================================================
@@ -136,7 +142,7 @@ fi
 # ============================================================================
 
 # FZF Configuration (fast path detection)
-if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || type -P fzf &>/dev/null; then
+if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || command -v fzf >/dev/null 2>&1; then
     # Use fd for file listing if available (check common paths first for speed)
     if command -v fd >/dev/null 2>&1; then
         export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
@@ -208,24 +214,6 @@ export HISTIGNORE="ls:cd:cd -:pwd:exit:date:* --help"
 export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
 
 # ============================================================================
-# Shell Options (Bash-only)
-# ============================================================================
-if [ -n "$BASH_VERSION" ]; then
-    # Append to history file, don't overwrite it
-    shopt -s histappend 2>/dev/null || true
-    # Save multi-line commands as one command
-    shopt -s cmdhist 2>/dev/null || true
-    # Check window size after each command
-    shopt -s checkwinsize 2>/dev/null || true
-    # Correct minor errors in cd paths
-    shopt -s cdspell 2>/dev/null || true
-    # Enable recursive globbing with **
-    shopt -s globstar 2>/dev/null || true
-    # Case-insensitive globbing
-    shopt -s nocaseglob 2>/dev/null || true
-fi
-
-# ============================================================================
 # Development Tools
 # ============================================================================
 export NODE_OPTIONS="--max-old-space-size=4096"
@@ -275,7 +263,7 @@ export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quo
 # ============================================================================
 # Pager
 # ============================================================================
-if command -v bat &>/dev/null; then
+if command -v bat >/dev/null 2>&1; then
     export PAGER="bat --plain"
 else
     export PAGER="less"
@@ -284,14 +272,14 @@ fi
 # ============================================================================
 # Starship Prompt
 # ============================================================================
-if command -v starship &>/dev/null; then
+if command -v starship >/dev/null 2>&1; then
     export STARSHIP_CONFIG="$HOME/.config/starship.toml"
 fi
 
 # ============================================================================
 # Zoxide
 # ============================================================================
-if command -v zoxide &>/dev/null; then
+if command -v zoxide >/dev/null 2>&1; then
     export _ZO_DATA_DIR="$HOME/.local/share/zoxide"
     export _ZO_ECHO=1
 fi
@@ -303,7 +291,11 @@ _path_dedupe
 # CTF Performance Optimization
 # ============================================================================
 # Increase file descriptors for high-speed scanners (RustScan, ZMap)
-if [ "$(ulimit -n)" -lt 65535 ]; then
+_dotfiles_ulimit_n=$(ulimit -n 2>/dev/null || printf '0')
+case "$_dotfiles_ulimit_n" in
+    *[!0-9]*|'') _dotfiles_ulimit_n=0 ;;
+esac
+if [ "$_dotfiles_ulimit_n" -gt 0 ] && [ "$_dotfiles_ulimit_n" -lt 65535 ]; then
     ulimit -n 65535 2>/dev/null || true
 fi
 
@@ -312,3 +304,4 @@ fi
 # ============================================================================
 unset -f _path_prepend 2>/dev/null || true
 unset -f _path_dedupe 2>/dev/null || true
+unset _path_dedupe_old_path _path_dedupe_new_path _path_dedupe_entry _dotfiles_ulimit_n 2>/dev/null || true

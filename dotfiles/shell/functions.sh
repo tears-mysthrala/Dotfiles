@@ -8,11 +8,11 @@
 # Editor Detection and Initialization
 # ============================================================================
 editor() {
-    local editors=("nvim" "vim" "vi" "nano" "code" "emacs")
+    local ed
     
     if [ -z "$EDITOR" ]; then
-        for ed in "${editors[@]}"; do
-            if command -v "$ed" &>/dev/null; then
+        for ed in nvim vim vi nano code emacs; do
+            if command -v "$ed" >/dev/null 2>&1; then
                 export EDITOR="$ed"
                 export VISUAL="$ed"
                 break
@@ -93,12 +93,11 @@ fi
 _dotfiles_sync_fetch() {
     local remote="${1:-origin}"
     local dotfiles_dir="$HOME/.dotfiles"
-    local -a fetch_cmd=(git -C "$dotfiles_dir" fetch --prune --quiet "$remote")
 
     if command -v timeout >/dev/null 2>&1; then
-        timeout 8 "${fetch_cmd[@]}"
+        timeout 8 git -C "$dotfiles_dir" fetch --prune --quiet "$remote"
     else
-        "${fetch_cmd[@]}"
+        git -C "$dotfiles_dir" fetch --prune --quiet "$remote"
     fi
 }
 
@@ -106,12 +105,21 @@ _dotfiles_sync_push() {
     local remote="${1:-origin}"
     local branch="$2"
     local dotfiles_dir="$HOME/.dotfiles"
-    local -a push_cmd=(git -C "$dotfiles_dir" push --quiet "$remote" "HEAD:$branch")
 
     if command -v timeout >/dev/null 2>&1; then
-        timeout 12 "${push_cmd[@]}"
+        timeout 12 git -C "$dotfiles_dir" push --quiet "$remote" "HEAD:$branch"
     else
-        "${push_cmd[@]}"
+        git -C "$dotfiles_dir" push --quiet "$remote" "HEAD:$branch"
+    fi
+}
+
+_command_path_no_windows() {
+    local cmd="$1"
+
+    if command -v which >/dev/null 2>&1; then
+        which -a "$cmd" 2>/dev/null | grep -v '^/mnt/' | head -1
+    else
+        command -v "$cmd" 2>/dev/null | grep -v '^/mnt/' | head -1
     fi
 }
 
@@ -365,17 +373,17 @@ npx() {
 # System Update Functions (Multi-distro support)
 # ============================================================================
 detect_package_manager() {
-    if command -v apt &>/dev/null; then
+    if command -v apt >/dev/null 2>&1; then
         echo "apt"
-    elif command -v dnf &>/dev/null; then
+    elif command -v dnf >/dev/null 2>&1; then
         echo "dnf"
-    elif command -v yum &>/dev/null; then
+    elif command -v yum >/dev/null 2>&1; then
         echo "yum"
-    elif command -v pacman &>/dev/null; then
+    elif command -v pacman >/dev/null 2>&1; then
         echo "pacman"
-    elif command -v zypper &>/dev/null; then
+    elif command -v zypper >/dev/null 2>&1; then
         echo "zypper"
-    elif command -v apk &>/dev/null; then
+    elif command -v apk >/dev/null 2>&1; then
         echo "apk"
     else
         echo "unknown"
@@ -395,8 +403,7 @@ _upgrade_exec_shell() {
 }
 
 _upgrade_sudo_keepalive_start() {
-    local __pid_var="$1"
-    printf -v "$__pid_var" ''
+    _upgrade_sudo_keepalive_pid=""
 
     command -v sudo >/dev/null 2>&1 || return 0
 
@@ -414,7 +421,7 @@ _upgrade_sudo_keepalive_start() {
             sudo -n -v >/dev/null 2>&1 || exit 0
         done
     ) &
-    printf -v "$__pid_var" '%s' "$!"
+    _upgrade_sudo_keepalive_pid="$!"
 }
 
 _upgrade_sudo_keepalive_stop() {
@@ -483,15 +490,15 @@ _upgrade_run_step() {
 }
 
 _upgrade_uv() {
-    command -v uv &>/dev/null || return 0
+    command -v uv >/dev/null 2>&1 || return 0
     uv self update 2>/dev/null || true
     uv tool upgrade --all
 }
 
 _upgrade_gem() {
     local gem_bin ruby_bin user_gem_home ruby_api_version
-    gem_bin=$(type -ap gem 2>/dev/null | grep -v '^/mnt/' | head -1)
-    ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
+    gem_bin=$(_command_path_no_windows gem)
+    ruby_bin=$(_command_path_no_windows ruby)
     [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
 
     user_gem_home=$("$gem_bin" env user_gemhome 2>/dev/null)
@@ -534,8 +541,8 @@ _upgrade_gem() {
 }
 
 _upgrade_cargo() {
-    command -v cargo &>/dev/null || return 0
-    if ! command -v cargo-install-update &>/dev/null; then
+    command -v cargo >/dev/null 2>&1 || return 0
+    if ! command -v cargo-install-update >/dev/null 2>&1; then
         _UPGRADE_STEP_NOTE="cargo-install-update no encontrado — instala con: cargo install cargo-update"
         return 0
     fi
@@ -544,36 +551,36 @@ _upgrade_cargo() {
 
 _upgrade_pipx() {
     local pipx_bin
-    pipx_bin=$(type -ap pipx 2>/dev/null | grep -v '^/mnt/' | head -1)
+    pipx_bin=$(_command_path_no_windows pipx)
     [[ -n "$pipx_bin" ]] || return 0
     (cd "$HOME" && "$pipx_bin" upgrade-all)
 }
 
 _upgrade_npm() {
-    command -v npm &>/dev/null || return 0
+    command -v npm >/dev/null 2>&1 || return 0
     local npm_prefix="$HOME/.npm-global"
     mkdir -p "$npm_prefix"
     npm_config_prefix="$npm_prefix" npm update -g
 }
 
 _upgrade_yarn() {
-    command -v yarn &>/dev/null || return 0
+    command -v yarn >/dev/null 2>&1 || return 0
     yarn global upgrade
 }
 
 _upgrade_pnpm() {
-    command -v pnpm &>/dev/null || return 0
+    command -v pnpm >/dev/null 2>&1 || return 0
     pnpm update -g
 }
 
 _upgrade_bun() {
-    command -v bun &>/dev/null || return 0
+    command -v bun >/dev/null 2>&1 || return 0
     # Update bun runtime; global packages handled separately if any exist
     bun upgrade 2>/dev/null || true
 }
 
 _upgrade_npx() {
-    command -v npx &>/dev/null || return 0
+    command -v npx >/dev/null 2>&1 || return 0
     [[ -d "$HOME/.npm/_npx" ]] || return 0
     local count
     count=$(find "$HOME/.npm/_npx" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
@@ -583,12 +590,12 @@ _upgrade_npx() {
 }
 
 _upgrade_flatpak() {
-    command -v flatpak &>/dev/null || return 0
+    command -v flatpak >/dev/null 2>&1 || return 0
     flatpak update -y
 }
 
 _upgrade_mise() {
-    command -v mise &>/dev/null || return 0
+    command -v mise >/dev/null 2>&1 || return 0
     if [[ "${MISE_SELF_UPDATE:-0}" == "1" ]]; then
         mise self-update --yes --no-plugins 2>/dev/null || true
     fi
@@ -596,19 +603,19 @@ _upgrade_mise() {
 }
 
 _upgrade_pyenv() {
-    command -v pyenv &>/dev/null || return 0
+    command -v pyenv >/dev/null 2>&1 || return 0
     local pyenv_root="${PYENV_ROOT:-$HOME/.pyenv}"
     [[ -d "$pyenv_root/.git" ]] || return 0
     git -C "$pyenv_root" pull --rebase --autostash
 }
 
 _upgrade_brew() {
-    command -v brew &>/dev/null || return 0
+    command -v brew >/dev/null 2>&1 || return 0
     brew update && brew upgrade --formula && brew upgrade --cask
 }
 
 _upgrade_pacdiff() {
-    command -v pacdiff &>/dev/null || return 0
+    command -v pacdiff >/dev/null 2>&1 || return 0
     local files
     files=$(pacdiff --output --pacmandb 2>/dev/null) || true
     [[ -n "$files" ]] || return 0
@@ -616,7 +623,7 @@ _upgrade_pacdiff() {
 }
 
 _upgrade_fwupdmgr() {
-    command -v fwupdmgr &>/dev/null || return 0
+    command -v fwupdmgr >/dev/null 2>&1 || return 0
     fwupdmgr refresh --force 2>/dev/null || fwupdmgr refresh 2>/dev/null || true
     fwupdmgr get-updates 2>/dev/null || true
 }
@@ -628,32 +635,32 @@ _upgrade_tmux() {
 }
 
 _upgrade_hyprpm() {
-    command -v hyprpm &>/dev/null || return 0
+    command -v hyprpm >/dev/null 2>&1 || return 0
     hyprpm update
 }
 
 _upgrade_flutter() {
-    command -v flutter &>/dev/null || return 0
+    command -v flutter >/dev/null 2>&1 || return 0
     flutter upgrade
 }
 
 _upgrade_tldr() {
-    command -v tldr &>/dev/null || return 0
+    command -v tldr >/dev/null 2>&1 || return 0
     tldr --update
 }
 
 _upgrade_nvim() {
-    command -v nvim &>/dev/null || return 0
+    command -v nvim >/dev/null 2>&1 || return 0
     nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
 }
 
 _upgrade_gh() {
-    command -v gh &>/dev/null || return 0
+    command -v gh >/dev/null 2>&1 || return 0
     gh extension upgrade --all
 }
 
 _upgrade_gcloud() {
-    command -v gcloud &>/dev/null || return 0
+    command -v gcloud >/dev/null 2>&1 || return 0
     if gcloud components update --quiet 2>&1 | grep -q "managed by an external package manager"; then
         _UPGRADE_STEP_NOTE="pacman-managed gcloud → skip"
         return 0
@@ -662,12 +669,12 @@ _upgrade_gcloud() {
 }
 
 _upgrade_claude() {
-    command -v claude &>/dev/null || return 0
+    command -v claude >/dev/null 2>&1 || return 0
     claude update && claude plugin marketplace update
 }
 
 _upgrade_docker() {
-    command -v docker &>/dev/null || return 0
+    command -v docker >/dev/null 2>&1 || return 0
     local images
     images=$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>' || true)
     [[ -n "$images" ]] || return 0
@@ -675,7 +682,7 @@ _upgrade_docker() {
 }
 
 _upgrade_pi() {
-    command -v pi &>/dev/null || return 0
+    command -v pi >/dev/null 2>&1 || return 0
     if pi update 2>&1 | grep -q "cannot self-update this installation"; then
         _UPGRADE_STEP_NOTE="npx-managed pi → skip"
         return 0
@@ -695,28 +702,28 @@ _upgrade_system() {
     fi
 
     local rc=0
-    if command -v yay &>/dev/null; then
+    if command -v yay >/dev/null 2>&1; then
         yay -Pw 2>/dev/null || true
         if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
             SUDO_ASKPASS="$_askpass" yay -Syu --noconfirm --sudoflags="-A" || rc=$?
         else
             yay -Syu --noconfirm || rc=$?
         fi
-    elif command -v paru &>/dev/null; then
+    elif command -v paru >/dev/null 2>&1; then
         if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
             SUDO_ASKPASS="$_askpass" paru -Syu --noconfirm --sudoflags="-A" || rc=$?
         else
             paru -Syu --noconfirm || rc=$?
         fi
-    elif command -v pacman &>/dev/null; then
+    elif command -v pacman >/dev/null 2>&1; then
         _sudo_pipe pacman -Syu --noconfirm || rc=$?
-    elif command -v dnf &>/dev/null; then
+    elif command -v dnf >/dev/null 2>&1; then
         _sudo_pipe dnf upgrade -y || rc=$?
-    elif command -v apt &>/dev/null; then
+    elif command -v apt >/dev/null 2>&1; then
         _sudo_pipe apt update && _sudo_pipe apt upgrade -y || rc=$?
-    elif command -v zypper &>/dev/null; then
+    elif command -v zypper >/dev/null 2>&1; then
         _sudo_pipe zypper refresh && _sudo_pipe zypper update -y || rc=$?
-    elif command -v apk &>/dev/null; then
+    elif command -v apk >/dev/null 2>&1; then
         _sudo_pipe apk update && _sudo_pipe apk upgrade || rc=$?
     else
         echo "No se reconoce el gestor de paquetes" >&2
@@ -825,7 +832,7 @@ upgrade() {
     echo "🔄 Actualizando sistema..."
     echo
 
-    _upgrade_sudo_keepalive_start _upgrade_sudo_keepalive_pid
+    _upgrade_sudo_keepalive_start
 
     for step in "${steps[@]}"; do
         name="${step%%:*}"
@@ -891,7 +898,7 @@ cleanup() {
         pacman)
             echo "🗑️  Cleaning Pacman cache..."
             sudo pacman -Sc --noconfirm
-            if command -v paccache &>/dev/null; then
+            if command -v paccache >/dev/null 2>&1; then
                 paccache -rk 2
             fi
             ;;
@@ -905,13 +912,13 @@ cleanup() {
     rm -rf ~/.cache/thumbnails/* 2>/dev/null || true
     
     # Clean journal logs (keep last 3 days)
-    if command -v journalctl &>/dev/null; then
+    if command -v journalctl >/dev/null 2>&1; then
         echo "🗑️  Cleaning journal logs..."
         sudo journalctl --vacuum-time=3d
     fi
     
     # Clean Docker if installed
-    if command -v docker &>/dev/null; then
+    if command -v docker >/dev/null 2>&1; then
         echo "🗑️  Cleaning Docker resources..."
         docker system prune -af --volumes
     fi
@@ -1033,7 +1040,7 @@ serve() {
 # ============================================================================
 # Find directory by name
 fd_dir() {
-    if command -v fd &>/dev/null; then
+    if command -v fd >/dev/null 2>&1; then
         fd -t d "$@"
     else
         find . -type d -iname "*$1*"
@@ -1047,7 +1054,7 @@ ff() {
     local path="${2:-.}"
     local depth="${3:-3}"
     
-    if command -v fd &>/dev/null; then
+    if command -v fd >/dev/null 2>&1; then
         fd --type f --max-depth "$depth" "$pattern" "$path"
     else
         find "$path" -maxdepth "$depth" -type f -name "$pattern" 2>/dev/null
@@ -1064,7 +1071,7 @@ search() {
         return 1
     fi
     
-    if command -v rg &>/dev/null; then
+    if command -v rg >/dev/null 2>&1; then
         rg --line-number --column --color=always "$pattern" "$path"
     else
         grep -rn --color=always "$pattern" "$path"
@@ -1079,7 +1086,7 @@ which_cmd() {
     fi
     
     type -a "$1"
-    if command -v "$1" &>/dev/null; then
+    if command -v "$1" >/dev/null 2>&1; then
         command ls -lh "$(command -v "$1")"
     fi
 }
@@ -1096,7 +1103,7 @@ sysinfo() {
     echo "Kernel:         $(uname -r)"
     echo "Architecture:   $(uname -m)"
     echo "Uptime:         $(uptime -p 2>/dev/null || uptime)"
-    if command -v lsb_release &>/dev/null; then
+    if command -v lsb_release >/dev/null 2>&1; then
         echo "Distribution:   $(lsb_release -d | cut -f2)"
     fi
     echo "======================================"
@@ -1116,7 +1123,7 @@ benchmark() {
 # ============================================================================
 # FZF Advanced Functions
 # ============================================================================
-if command -v fzf &>/dev/null; then
+if command -v fzf >/dev/null 2>&1; then
     # FZF with ripgrep integration
     fzf_rg() {
         local initial_query="${*:-}"
@@ -1134,7 +1141,7 @@ if command -v fzf &>/dev/null; then
     
     # FZF file finder with preview
     fzf_find() {
-        if command -v fd &>/dev/null && command -v bat &>/dev/null; then
+        if command -v fd >/dev/null 2>&1 && command -v bat >/dev/null 2>&1; then
             fd --type file --follow --hidden --exclude .git | \
             fzf --preview 'bat --color=always --style=plain {}'
         else
@@ -1201,7 +1208,7 @@ dirs() {
 }
 
 ports() {
-    if command -v ss &>/dev/null; then
+    if command -v ss >/dev/null 2>&1; then
         ss -tulanp "$@"
     else
         netstat -tulanp "$@"
@@ -1209,7 +1216,7 @@ ports() {
 }
 
 dc() {
-    if command -v docker-compose &>/dev/null; then
+    if command -v docker-compose >/dev/null 2>&1; then
         command docker-compose "$@"
     else
         command docker compose "$@"
@@ -1219,7 +1226,7 @@ dc() {
 # ============================================================================
 # Zoxide Integration (lazy - only if available)
 # ============================================================================
-if command -v zoxide &>/dev/null; then
+if command -v zoxide >/dev/null 2>&1; then
     alias cd='z'
     alias cdi='zi'
 fi

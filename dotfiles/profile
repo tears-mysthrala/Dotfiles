@@ -1,15 +1,11 @@
-# .profile
+# .profile - POSIX login environment
 
-_profile_path_prepend() {
+if [ -f "$HOME/.config/shell/exports.sh" ]; then
+    . "$HOME/.config/shell/exports.sh"
+else
     case ":${PATH}:" in
-        *:"$1":*) ;;
-        *) PATH="$1${PATH:+:$PATH}" ;;
+        *:"$HOME/.local/bin":*) ;;
+        *) PATH="$HOME/.local/bin${PATH:+:$PATH}" ;;
     esac
-}
-
-[ -d "$HOME/.local/bin" ] && _profile_path_prepend "$HOME/.local/bin"
-[ -d "$HOME/.atuin/bin" ] && _profile_path_prepend "$HOME/.atuin/bin"
-
-export PATH
-
-unset -f _profile_path_prepend
+    export PATH
+fi

@@ -1,6 +1,14 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
+# Bash-only shell options. Keep these out of the POSIX environment layer.
+shopt -s histappend 2>/dev/null || true
+shopt -s cmdhist 2>/dev/null || true
+shopt -s checkwinsize 2>/dev/null || true
+shopt -s cdspell 2>/dev/null || true
+shopt -s globstar 2>/dev/null || true
+shopt -s nocaseglob 2>/dev/null || true
+
 # Load ble.sh early so it can attach after the rest of the shell is configured.
 if [[ -t 0 && -t 1 ]] && [ -f "$HOME/.local/share/blesh/out/ble.sh" ]; then
     source -- "$HOME/.local/share/blesh/out/ble.sh" --attach=none
