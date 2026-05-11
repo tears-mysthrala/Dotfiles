@@ -9,6 +9,19 @@
 __CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/shell-init"
 [ -d "$__CACHE_DIR" ] || mkdir -p "$__CACHE_DIR"
 
+__evalcache_hash() {
+    local bin="$1"
+    [ -n "$bin" ] || return 1
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum -- "$bin" 2>/dev/null | awk '{print $1}'
+    elif command -v md5sum >/dev/null 2>&1; then
+        md5sum -- "$bin" 2>/dev/null | awk '{print $1}'
+    else
+        stat -c '%s:%Y' -- "$bin" 2>/dev/null
+    fi
+}
+
 # ============================================================================
 # Generic Eval Cache Function
 # Cachea el resultado de eval "$($cmd init $shell)" basado en el hash del binario
@@ -21,9 +34,9 @@ __evalcache() {
     local hash_file="$__CACHE_DIR/${cmd}-hash"
     
     # Obtener hash actual del binario
-    local current_hash=""
-    if command -v "$cmd" >/dev/null 2>&1; then
-        current_hash=$(command -v "$cmd" | xargs md5sum 2>/dev/null | cut -d' ' -f1)
+    local current_hash="" cmd_path=""
+    if cmd_path=$(command -v "$cmd" 2>/dev/null); then
+        current_hash=$(__evalcache_hash "$cmd_path")
     fi
     
     # Verificar si el cache es válido
@@ -81,9 +94,9 @@ init_starship_optimized() {
     local cache_file="$__CACHE_DIR/starship-${shell}-init.sh"
     local hash_file="$__CACHE_DIR/starship-${shell}-hash"
     
-    local current_hash=""
-    if command -v starship >/dev/null 2>&1; then
-        current_hash=$(command -v starship | xargs md5sum 2>/dev/null | cut -d' ' -f1)
+    local current_hash="" starship_path=""
+    if starship_path=$(command -v starship 2>/dev/null); then
+        current_hash=$(__evalcache_hash "$starship_path")
     fi
     
     local cached_hash=""
@@ -120,9 +133,9 @@ init_zoxide_optimized() {
     local cache_file="$__CACHE_DIR/zoxide-${shell}-init.sh"
     local hash_file="$__CACHE_DIR/zoxide-${shell}-hash"
     
-    local current_hash=""
-    if command -v zoxide >/dev/null 2>&1; then
-        current_hash=$(command -v zoxide | xargs md5sum 2>/dev/null | cut -d' ' -f1)
+    local current_hash="" zoxide_path=""
+    if zoxide_path=$(command -v zoxide 2>/dev/null); then
+        current_hash=$(__evalcache_hash "$zoxide_path")
     fi
     
     local cached_hash=""

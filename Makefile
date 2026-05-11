@@ -44,53 +44,55 @@ help:
 # ============================================================================
 
 install: deps link config
-	@echo "$(GREEN)✓ Installation completed successfully!$(NC)"
-	@echo "$(YELLOW)Please restart your shell or run:$(NC)"
+	@printf "%b\n" "$(GREEN)✓ Installation completed successfully!$(NC)"
+	@printf "%b\n" "$(YELLOW)Please restart your shell or run:$(NC)"
 	@echo "  source ~/.bashrc   (for Bash)"
 	@echo "  source ~/.zshrc    (for Zsh)"
 
 deps: starship zoxide fzf eza bat
-	@echo "$(GREEN)✓ All dependencies installed$(NC)"
+	@printf "%b\n" "$(GREEN)✓ All dependencies installed$(NC)"
 
 link:
-	@echo "$(BLUE)Creating symbolic links...$(NC)"
+	@printf "%b\n" "$(BLUE)Creating symbolic links...$(NC)"
 	@mkdir -p $(SHELL_CONFIG_DIR)
 	# Link shell modules
 	@ln -sf $(DOTFILES_DIR)/shell/aliases.sh $(SHELL_CONFIG_DIR)/aliases.sh
 	@ln -sf $(DOTFILES_DIR)/shell/functions.sh $(SHELL_CONFIG_DIR)/functions.sh
 	@ln -sf $(DOTFILES_DIR)/shell/exports.sh $(SHELL_CONFIG_DIR)/exports.sh
+	@ln -sf $(DOTFILES_DIR)/shell/optimized-tools.sh $(SHELL_CONFIG_DIR)/optimized-tools.sh
 	@ln -sfn $(DOTFILES_DIR)/shell/profiles $(SHELL_CONFIG_DIR)/profiles
 	# Link entry point files
 	@ln -sf $(DOTFILES_DIR)/bashrc $(HOME)/.bashrc
 	@ln -sf $(DOTFILES_DIR)/bash_profile $(HOME)/.bash_profile
 	@ln -sf $(DOTFILES_DIR)/profile $(HOME)/.profile
 	@ln -sf $(DOTFILES_DIR)/zshrc $(HOME)/.zshrc
-	@echo "$(GREEN)✓ Symbolic links created$(NC)"
+	@printf "%b\n" "$(GREEN)✓ Symbolic links created$(NC)"
 
 config:
-	@echo "$(BLUE)Configuring Starship prompt...$(NC)"
+	@printf "%b\n" "$(BLUE)Configuring Starship prompt...$(NC)"
 	@mkdir -p $(CONFIG_DIR)
 	@ln -sf $(DOTFILES_DIR)/config/starship.toml $(CONFIG_DIR)/starship.toml
-	@echo "$(GREEN)✓ Shell configuration completed$(NC)"
-	@echo "$(YELLOW)Note: Entry point files (.bashrc/.zshrc) are now linked directly$(NC)"
+	@printf "%b\n" "$(GREEN)✓ Shell configuration completed$(NC)"
+	@printf "%b\n" "$(YELLOW)Note: Entry point files (.bashrc/.zshrc) are now linked directly$(NC)"
 
 clean:
-	@echo "$(BLUE)Removing symbolic links...$(NC)"
+	@printf "%b\n" "$(BLUE)Removing symbolic links...$(NC)"
 	@rm -f $(SHELL_CONFIG_DIR)/aliases.sh
 	@rm -f $(SHELL_CONFIG_DIR)/functions.sh
 	@rm -f $(SHELL_CONFIG_DIR)/exports.sh
+	@rm -f $(SHELL_CONFIG_DIR)/optimized-tools.sh
 	@rm -rf $(SHELL_CONFIG_DIR)/profiles
 	@rm -f $(CONFIG_DIR)/starship.toml
 	@rm -f $(HOME)/.bashrc
 	@rm -f $(HOME)/.bash_profile
 	@rm -f $(HOME)/.profile
 	@rm -f $(HOME)/.zshrc
-	@echo "$(GREEN)✓ Symbolic links removed$(NC)"
-	@echo "$(YELLOW)Warning: Your original shell entry files have been removed$(NC)"
-	@echo "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
+	@printf "%b\n" "$(GREEN)✓ Symbolic links removed$(NC)"
+	@printf "%b\n" "$(YELLOW)Warning: Your original shell entry files have been removed$(NC)"
+	@printf "%b\n" "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
 
 doctor:
-	@echo "$(BLUE)Running dotfiles doctor...$(NC)"
+	@printf "%b\n" "$(BLUE)Running dotfiles doctor...$(NC)"
 	@bash -lc '\
 	set -e; \
 	check_link() { \
@@ -115,6 +117,7 @@ doctor:
 	check_link "$(SHELL_CONFIG_DIR)/aliases.sh" "$(DOTFILES_DIR)/shell/aliases.sh"; \
 	check_link "$(SHELL_CONFIG_DIR)/functions.sh" "$(DOTFILES_DIR)/shell/functions.sh"; \
 	check_link "$(SHELL_CONFIG_DIR)/exports.sh" "$(DOTFILES_DIR)/shell/exports.sh"; \
+	check_link "$(SHELL_CONFIG_DIR)/optimized-tools.sh" "$(DOTFILES_DIR)/shell/optimized-tools.sh"; \
 	check_link "$(SHELL_CONFIG_DIR)/profiles" "$(DOTFILES_DIR)/shell/profiles"; \
 	if [ -f "$(HOME)/.config/shell/profile.local.sh" ]; then \
 		printf "%b✓%b local profile selector present\n" "$(GREEN)" "$(NC)"; \

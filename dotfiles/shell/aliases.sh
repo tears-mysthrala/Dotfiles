@@ -145,7 +145,7 @@ alias mv='mv -i'
 # ============================================================================
 # These check on first use to avoid slow Windows PATH lookups
 df() {
-    if type -P duf &>/dev/null; then
+    if command -v duf >/dev/null 2>&1; then
         command duf "$@"
     else
         command df -h "$@"
@@ -153,7 +153,7 @@ df() {
 }
 
 du() {
-    if type -P dust &>/dev/null; then
+    if command -v dust >/dev/null 2>&1; then
         command dust "$@"
     else
         command du -h "$@"
@@ -164,9 +164,9 @@ du() {
 # Process management (lazy-loaded)
 # ============================================================================
 htop() {
-    if type -P btop &>/dev/null; then
+    if command -v btop >/dev/null 2>&1; then
         command btop "$@"
-    elif type -P htop &>/dev/null; then
+    elif [ -x "$HOME/.local/bin/htop" ] || [ -x "/usr/local/bin/htop" ] || [ -x "/usr/bin/htop" ]; then
         command htop "$@"
     else
         command top "$@"
@@ -174,12 +174,12 @@ htop() {
 }
 
 top() {
-    if type -P btop &>/dev/null; then
+    if command -v btop >/dev/null 2>&1; then
         command btop "$@"
-    elif type -P htop &>/dev/null; then
+    elif [ -x "$HOME/.local/bin/htop" ] || [ -x "/usr/local/bin/htop" ] || [ -x "/usr/bin/htop" ]; then
         command htop "$@"
     else
-        command top "$@"
+        env top "$@"
     fi
 }
 
@@ -187,7 +187,7 @@ top() {
 # Lazygit (lazy-loaded)
 # ============================================================================
 lg() {
-    if type -P lazygit &>/dev/null; then
+    if command -v lazygit >/dev/null 2>&1; then
         command lazygit "$@"
     else
         echo "lazygit not installed" >&2
@@ -214,9 +214,9 @@ alias clawlogs='claw-logs'
 # Clipboard integration (lazy-loaded)
 # ============================================================================
 pbcopy() {
-    if type -P xclip &>/dev/null; then
+    if command -v xclip >/dev/null 2>&1; then
         command xclip -selection clipboard "$@"
-    elif type -P wl-copy &>/dev/null; then
+    elif command -v wl-copy >/dev/null 2>&1; then
         command wl-copy "$@"
     else
         echo "No clipboard tool found (xclip or wl-copy)" >&2
@@ -225,9 +225,9 @@ pbcopy() {
 }
 
 pbpaste() {
-    if type -P xclip &>/dev/null; then
+    if command -v xclip >/dev/null 2>&1; then
         command xclip -selection clipboard -o
-    elif type -P wl-copy &>/dev/null; then
+    elif command -v wl-copy >/dev/null 2>&1; then
         command wl-paste
     else
         echo "No clipboard tool found (xclip or wl-copy)" >&2

@@ -36,6 +36,7 @@ run_syntax() {
     bash -n "$repo_root/dotfiles/shell/aliases.sh"
     bash -n "$repo_root/dotfiles/shell/functions.sh"
     bash -n "$repo_root/dotfiles/shell/exports.sh"
+    bash -n "$repo_root/dotfiles/shell/optimized-tools.sh"
     bash -n "$repo_root/dotfiles/shell/profiles/base.sh"
     bash -n "$repo_root/dotfiles/shell/profiles/ctf.sh"
     printf '::endgroup::\n'

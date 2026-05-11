@@ -82,7 +82,11 @@ fi
 
 # Homebrew (Linuxbrew)
 if [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash 2>/dev/null || true)"
+    if [ -n "${ZSH_VERSION:-}" ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh 2>/dev/null || true)"
+    else
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash 2>/dev/null || true)"
+    fi
 fi
 
 # Node Version Manager (lazy-loaded, see functions.sh for nvm function)
@@ -235,20 +239,25 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 # ============================================================================
 # SSH Agent (Optimized - singleton pattern)
 # ============================================================================
-# Use a persistent socket to avoid starting a new agent per shell
-SSH_AGENT_ENV="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-${USER}.env"
+# Keep this interactive-only so scripts that source exports do not spawn agents.
+if [ -t 0 ] && command -v ssh-agent >/dev/null 2>&1; then
+    SSH_AGENT_ENV="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-${USER}.env"
 
-if [ -z "$SSH_AUTH_SOCK" ]; then
-    if [ -f "$SSH_AGENT_ENV" ]; then
-        # shellcheck source=/dev/null
-        . "$SSH_AGENT_ENV" >/dev/null 2>&1
-        # Verify agent is still alive
-        if ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
-            rm -f "$SSH_AGENT_ENV"
-            eval "$(ssh-agent -s)" > "$SSH_AGENT_ENV" 2>/dev/null
+    if [ -z "$SSH_AUTH_SOCK" ]; then
+        if [ -f "$SSH_AGENT_ENV" ]; then
+            # shellcheck source=/dev/null
+            . "$SSH_AGENT_ENV" >/dev/null 2>&1
+            if [ -z "${SSH_AGENT_PID:-}" ] || ! kill -0 "$SSH_AGENT_PID" 2>/dev/null; then
+                rm -f "$SSH_AGENT_ENV"
+                ssh-agent -s > "$SSH_AGENT_ENV" 2>/dev/null
+                # shellcheck source=/dev/null
+                . "$SSH_AGENT_ENV" >/dev/null 2>&1
+            fi
+        else
+            ssh-agent -s > "$SSH_AGENT_ENV" 2>/dev/null
+            # shellcheck source=/dev/null
+            . "$SSH_AGENT_ENV" >/dev/null 2>&1
         fi
-    else
-        eval "$(ssh-agent -s)" > "$SSH_AGENT_ENV" 2>/dev/null
     fi
 fi
 if [ -t 0 ]; then
@@ -302,11 +311,4 @@ fi
 # Clean up helper function
 # ============================================================================
 unset -f _path_prepend 2>/dev/null || true
-
-# ============================================================================
-# Custom User Configurations
-# ============================================================================
-if [ -f "$HOME/.config/shell/exports.local.sh" ]; then
-    # shellcheck source=/dev/null
-    source "$HOME/.config/shell/exports.local.sh"
-fi
+unset -f _path_dedupe 2>/dev/null || true

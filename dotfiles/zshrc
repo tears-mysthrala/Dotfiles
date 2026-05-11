@@ -60,13 +60,13 @@ fi
 # ============================================================================
 
 # Starship Prompt - cached init for faster startup
-if command -v starship >/dev/null 2>&1; then
+if command -v starship >/dev/null 2>&1 && typeset -f init_starship_optimized >/dev/null; then
     init_starship_optimized zsh
 fi
 
 # Zoxide - lazy loaded (only initializes when you use 'z' for first time)
 # This saves ~50-100ms on every new shell
-if command -v zoxide >/dev/null 2>&1; then
+if command -v zoxide >/dev/null 2>&1 && typeset -f init_zoxide_lazy >/dev/null; then
     init_zoxide_lazy zsh
 fi
 
@@ -97,6 +97,10 @@ fi
 # ============================================================================
 # User Customization
 # ============================================================================
+for file in "$HOME/.config/shell/"{exports,aliases,functions}.local.sh; do
+    [ -f "$file" ] && source "$file"
+done
+
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
 
 if [ -f "$HOME/.atuin/bin/env" ]; then

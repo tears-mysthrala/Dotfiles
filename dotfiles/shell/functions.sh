@@ -242,26 +242,50 @@ dotfiles-auto-sync() {
 }
 
 claw-status() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw gateway status
 }
 
 claw-start() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw gateway start
 }
 
 claw-stop() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw gateway stop
 }
 
 claw-restart() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw gateway restart
 }
 
 claw-logs() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw channels logs "$@"
 }
 
 claw-channels() {
+    command -v openclaw >/dev/null 2>&1 || {
+        echo "openclaw not installed" >&2
+        return 127
+    }
     openclaw channels status --probe
 }
 
@@ -1148,7 +1172,7 @@ fi
 # File Hash Utilities
 # ============================================================================
 sha256() {
-    if [ -f "$1" ]; then
+    if [ -f "${1:-}" ]; then
         sha256sum "$1" | awk '{print $1}'
     else
         echo "File not found: $1" >&2
@@ -1157,7 +1181,7 @@ sha256() {
 }
 
 md5() {
-    if [ -f "$1" ]; then
+    if [ -f "${1:-}" ]; then
         md5sum "$1" | awk '{print $1}'
     else
         echo "File not found: $1" >&2
