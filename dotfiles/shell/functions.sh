@@ -102,13 +102,26 @@ _dotfiles_sync_fetch() {
     fi
 }
 
+_dotfiles_sync_push() {
+    local remote="${1:-origin}"
+    local branch="$2"
+    local dotfiles_dir="$HOME/.dotfiles"
+    local -a push_cmd=(git -C "$dotfiles_dir" push --quiet "$remote" "HEAD:$branch")
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 12 "${push_cmd[@]}"
+    else
+        "${push_cmd[@]}"
+    fi
+}
+
 _dotfiles_sync_run() {
     local mode="${1:-manual}"
     local dotfiles_dir="$HOME/.dotfiles"
     local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
     local stamp_file="$state_dir/last-auto-sync"
     local lock_file="$state_dir/auto-sync.lock"
-    local before after upstream remote now last_sync interval
+    local before after upstream remote branch now last_sync interval ahead behind
 
     [[ -d "$dotfiles_dir/.git" ]] || return 0
     mkdir -p "$state_dir"
@@ -159,13 +172,39 @@ _dotfiles_sync_run() {
         return 1
     fi
 
-    if git -C "$dotfiles_dir" diff --quiet "${upstream}"...HEAD 2>/dev/null && \
-       git -C "$dotfiles_dir" diff --quiet HEAD..."${upstream}" 2>/dev/null; then
+    read -r ahead behind < <(git -C "$dotfiles_dir" rev-list --left-right --count "HEAD...${upstream}" 2>/dev/null)
+    ahead="${ahead:-0}"
+    behind="${behind:-0}"
+
+    if (( ahead == 0 && behind == 0 )); then
         [[ "$mode" == "manual" ]] && echo "dotfiles-sync: already up to date"
         printf '%s\n' "$(date +%s)" > "$stamp_file"
         rm -f "$lock_file" 2>/dev/null || true
         unset DOTFILES_AUTO_SYNC_RUNNING
         return 0
+    fi
+
+    if (( ahead > 0 && behind == 0 )); then
+        branch="${upstream#*/}"
+        if ! GIT_TERMINAL_PROMPT=0 _dotfiles_sync_push "$remote" "$branch"; then
+            [[ "$mode" == "manual" ]] && echo "dotfiles-sync: push failed" >&2
+            rm -f "$lock_file" 2>/dev/null || true
+            unset DOTFILES_AUTO_SYNC_RUNNING
+            return 1
+        fi
+
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: pushed $ahead commit(s) to $remote/$branch"
+        printf '%s\n' "$(date +%s)" > "$stamp_file"
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 0
+    fi
+
+    if (( ahead > 0 && behind > 0 )); then
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: local and remote histories diverged; skipping automatic sync" >&2
+        rm -f "$lock_file" 2>/dev/null || true
+        unset DOTFILES_AUTO_SYNC_RUNNING
+        return 1
     fi
 
     if ! git -C "$dotfiles_dir" merge --ff-only "$upstream"; then
@@ -669,7 +708,7 @@ _upgrade_dotfiles() {
     local dotfiles_dir="$HOME/.dotfiles"
     [[ -d "$dotfiles_dir/.git" ]] || return 0
 
-    local before after count upstream remote
+    local before after count upstream remote branch ahead behind
     before=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null) || return 1
 
     if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
@@ -687,12 +726,25 @@ _upgrade_dotfiles() {
     git -C "$dotfiles_dir" fetch --prune "$remote" || return 1
     after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
 
-    if [[ "$before" = "$after" ]]; then
-        if git -C "$dotfiles_dir" diff --quiet "${upstream}"...HEAD 2>/dev/null && \
-           git -C "$dotfiles_dir" diff --quiet HEAD..."${upstream}" 2>/dev/null; then
-            _UPGRADE_STEP_NOTE="ya al día"
-            return 0
-        fi
+    read -r ahead behind < <(git -C "$dotfiles_dir" rev-list --left-right --count "HEAD...${upstream}" 2>/dev/null)
+    ahead="${ahead:-0}"
+    behind="${behind:-0}"
+
+    if (( ahead == 0 && behind == 0 )); then
+        _UPGRADE_STEP_NOTE="ya al día"
+        return 0
+    fi
+
+    if (( ahead > 0 && behind == 0 )); then
+        branch="${upstream#*/}"
+        GIT_TERMINAL_PROMPT=0 _dotfiles_sync_push "$remote" "$branch" || return 1
+        _UPGRADE_STEP_NOTE="${ahead} commit(s) locales → push a ${remote}/${branch}"
+        return 0
+    fi
+
+    if (( ahead > 0 && behind > 0 )); then
+        _UPGRADE_STEP_NOTE="historial divergente con ${upstream} → sync manual"
+        return 1
     fi
 
     git -C "$dotfiles_dir" merge --ff-only "${upstream}" || return 1
