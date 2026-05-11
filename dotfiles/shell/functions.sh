@@ -377,7 +377,7 @@ _upgrade_fix_cmd() {
         uv)           echo "uv self update && uv tool upgrade --all" ;;
         pipx)         echo "pipx upgrade-all" ;;
         cargo)        echo "cargo install cargo-update" ;;
-        gem)          echo "sudo dnf install ruby-devel && gem update" ;;
+        gem)          echo "sudo dnf install ruby-devel && gem outdated --local | awk '\$1 != \"rdoc\" {print \$1}' | xargs -r gem update" ;;
         npm)          echo "npm_config_prefix=\$HOME/.npm-global npm update -g" ;;
         yarn)         echo "yarn global upgrade" ;;
         pnpm)         echo "pnpm update -g" ;;
@@ -426,14 +426,17 @@ _upgrade_uv() {
 }
 
 _upgrade_gem() {
-    local gem_bin ruby_bin
+    local gem_bin ruby_bin user_gem_home ruby_api_version
     gem_bin=$(type -ap gem 2>/dev/null | grep -v '^/mnt/' | head -1)
     ruby_bin=$(type -ap ruby 2>/dev/null | grep -v '^/mnt/' | head -1)
     [[ -n "$gem_bin" && -n "$ruby_bin" ]] || return 0
 
-    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
-        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
-    fi
+    user_gem_home=$("$gem_bin" env user_gemhome 2>/dev/null)
+    _upgrade_gem_remove_user_rdoc() {
+        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I --user-install --force >/dev/null 2>&1 || true
+        [[ -n "$user_gem_home" ]] && rm -f "$user_gem_home/plugins/rdoc_plugin.rb"
+    }
+    _upgrade_gem_remove_user_rdoc
 
     local hdrdir
     hdrdir=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["rubyhdrdir"]' 2>/dev/null)
@@ -442,14 +445,28 @@ _upgrade_gem() {
         return 1
     fi
 
-    "$gem_bin" update
+    local outdated=() gem_name
+    while IFS= read -r gem_name; do
+        [[ -n "$gem_name" ]] && outdated+=("$gem_name")
+    done < <("$gem_bin" outdated --local 2>/dev/null | awk '$1 != "rdoc" {print $1}')
+
+    if [[ ${#outdated[@]} -gt 0 ]]; then
+        "$gem_bin" update "${outdated[@]}"
+    else
+        echo "Updating installed gems"
+        echo "Nothing to update"
+    fi
     local rc=$?
 
-    if "$gem_bin" list -i rdoc -v 7.2.0 >/dev/null 2>&1; then
-        "$gem_bin" uninstall rdoc -v 7.2.0 -x -I >/dev/null 2>&1 || true
+    _upgrade_gem_remove_user_rdoc
+
+    ruby_api_version=$("$ruby_bin" -e 'require "rbconfig"; print RbConfig::CONFIG["ruby_version"]' 2>/dev/null)
+    if [[ -n "$user_gem_home" && -n "$ruby_api_version" && -d "$user_gem_home/extensions" ]]; then
+        find "$user_gem_home/extensions" -mindepth 2 -maxdepth 2 -type d ! -name "$ruby_api_version" -exec rm -rf {} + 2>/dev/null || true
     fi
 
     "$gem_bin" cleanup 2>/dev/null || true
+    unset -f _upgrade_gem_remove_user_rdoc
     return $rc
 }
 
