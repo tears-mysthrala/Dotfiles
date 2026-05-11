@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # .profile - POSIX login environment
 
 if [ -f "$HOME/.config/shell/exports.sh" ]; then
