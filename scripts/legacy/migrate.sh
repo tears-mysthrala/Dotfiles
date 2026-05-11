@@ -6,6 +6,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  PowerShell → Linux Native Migration                      ║"
 echo "║  This script will complete the repository transformation  ║"
@@ -21,7 +25,7 @@ git checkout main
 
 # Step 2: Make scripts executable
 echo "[2/6] Setting execute permissions..."
-chmod +x install.sh cleanup-legacy.sh
+chmod +x install.sh "$SCRIPT_DIR/cleanup-legacy.sh"
 
 # Step 3: Replace README and gitignore
 echo "[3/6] Replacing README and .gitignore..."
@@ -37,9 +41,9 @@ echo "[4/6] Running legacy cleanup (this will delete PowerShell files)..."
 read -p "Continue with cleanup? [y/N]: " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    ./cleanup-legacy.sh
+    "$SCRIPT_DIR/cleanup-legacy.sh"
 else
-    echo "Cleanup skipped. Run ./cleanup-legacy.sh manually when ready."
+    echo "Cleanup skipped. Run scripts/legacy/cleanup-legacy.sh manually when ready."
     exit 0
 fi
 

@@ -41,6 +41,11 @@ run_syntax() {
     bash -n "$repo_root/dotfiles/shell/optimized-tools.sh"
     bash -n "$repo_root/dotfiles/shell/profiles/base.sh"
     bash -n "$repo_root/dotfiles/shell/profiles/ctf.sh"
+    if command -v zsh >/dev/null 2>&1; then
+        zsh -n "$repo_root/dotfiles/zshrc"
+    else
+        printf 'zsh not installed; skipping zsh syntax check\n'
+    fi
     printf '::endgroup::\n'
 }
 

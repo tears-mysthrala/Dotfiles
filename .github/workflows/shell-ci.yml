@@ -13,14 +13,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install shell tooling
+        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh
+
       - name: Run syntax checks
         run: bash tests/smoke.bash syntax
+
+      - name: Run ShellCheck
+        run: make lint
 
   doctor:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install shell tooling
+        run: sudo apt-get update && sudo apt-get install -y zsh
 
       - name: Run doctor checks
         run: bash tests/smoke.bash doctor
@@ -30,6 +39,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install shell tooling
+        run: sudo apt-get update && sudo apt-get install -y zsh
 
       - name: Run profile smoke tests
         run: bash tests/smoke.bash profiles

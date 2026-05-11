@@ -3,7 +3,7 @@
 # Modern shell environment with automated dependency management
 # ============================================================================
 
-.PHONY: all install deps link config doctor test starship zoxide fzf eza bat clean uninstall help
+.PHONY: all install deps link config doctor lint test starship zoxide fzf eza bat clean uninstall help
 
 # Colors for output
 BLUE := \033[0;34m
@@ -16,6 +16,7 @@ CONFIG_DIR := $(HOME)/.config
 SHELL_CONFIG_DIR := $(CONFIG_DIR)/shell
 LOCAL_BIN := $(HOME)/.local/bin
 DOTFILES_DIR := $(CURDIR)/dotfiles
+SHELLCHECK_OPTS ?= -S error
 
 # Shell detection
 SHELL_TYPE := $(shell basename $(SHELL))
@@ -31,6 +32,7 @@ help:
 	@echo "  $(GREEN)link$(NC)        - Create symbolic links"
 	@echo "  $(GREEN)config$(NC)      - Configure shell initialization"
 	@echo "  $(GREEN)doctor$(NC)      - Validate links, profiles, and optional tools"
+	@echo "  $(GREEN)lint$(NC)        - Run ShellCheck when available"
 	@echo "  $(GREEN)test$(NC)        - Run shell smoke tests"
 	@echo "  $(GREEN)clean$(NC)       - Remove symbolic links"
 	@echo "  $(GREEN)uninstall$(NC)   - Full uninstall (clean + remove deps)"
@@ -131,7 +133,26 @@ doctor:
 	for cmd in starship zoxide fzf eza bat atuin mise; do check_cmd "$$cmd"; done; \
 	'
 
-test:
+lint:
+	@if command -v shellcheck >/dev/null 2>&1; then \
+		shellcheck $(SHELLCHECK_OPTS) \
+			install.sh \
+			dotfiles/profile \
+			dotfiles/shell/exports.sh \
+			dotfiles/bashrc \
+			dotfiles/shell/aliases.sh \
+			dotfiles/shell/functions.sh \
+			dotfiles/shell/optimized-tools.sh \
+			dotfiles/shell/profiles/base.sh \
+			dotfiles/shell/profiles/ctf.sh \
+			scripts/legacy/cleanup-legacy.sh \
+			scripts/legacy/migrate.sh \
+			scripts/legacy/update_profiles.sh; \
+	else \
+		printf "%b\n" "$(YELLOW)! shellcheck not installed; skipping lint$(NC)"; \
+	fi
+
+test: lint
 	@bash tests/smoke.bash
 
 uninstall: clean

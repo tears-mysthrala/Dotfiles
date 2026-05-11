@@ -2,7 +2,7 @@
 
 [![Shell CI](https://github.com/tears-mysthrala/Dotfiles/actions/workflows/shell-ci.yml/badge.svg)](https://github.com/tears-mysthrala/Dotfiles/actions/workflows/shell-ci.yml)
 
-Modern Bash-first dotfiles for Linux with switchable shell profiles, safe cross-machine syncing, and optional auto-sync on shell startup.
+Modern Linux dotfiles with a portable POSIX environment layer, Bash/Zsh interactive shells, switchable shell profiles, safe cross-machine syncing, and optional auto-sync on shell startup.
 
 ## 🚀 Quick Start
 
@@ -33,11 +33,15 @@ The installer will:
 - **[Bat](https://github.com/sharkdp/bat)** - Cat with syntax highlighting
 
 ### Shell Configuration
-- **aliases.sh** - Common shortcuts and modern tool aliases
-- **functions.sh** - Useful shell functions (system updates, git helpers, etc.)
-- **exports.sh** - Environment variables and PATH configuration
-- **profiles/base.sh** - Shared default profile
-- **profiles/ctf.sh** - Optional CTF/audit helpers
+- **profile** - POSIX login entry point
+- **exports.sh** - POSIX-friendly environment and PATH layer
+- **bashrc** - Bash-only interactive initialization
+- **zshrc** - Zsh-only interactive initialization
+- **aliases.sh** - Bash/Zsh shortcuts and modern tool aliases
+- **functions.sh** - Bash/Zsh shell functions, including updates and git helpers
+- **optimized-tools.sh** - cached Starship/Zoxide initialization
+- **profiles/base.sh** - shared default profile
+- **profiles/ctf.sh** - optional CTF/audit helpers
 
 ## 🛠️ Manual Installation
 
@@ -57,6 +61,12 @@ make doctor
 # Run shell smoke tests
 make test
 
+# Run ShellCheck when installed
+make lint
+
+# Optional stricter lint pass
+make lint SHELLCHECK_OPTS='-S warning'
+
 # Full installation
 make install
 ```
@@ -70,6 +80,7 @@ make install
 | `make link` | Create symbolic links |
 | `make config` | Configure shell initialization |
 | `make doctor` | Validate links, profiles, and optional tools |
+| `make lint` | Run ShellCheck when available |
 | `make test` | Run shell smoke tests |
 | `make clean` | Remove symbolic links |
 | `make help` | Show all available targets |
@@ -184,7 +195,7 @@ export DOTFILES_AUTO_SYNC=1
 export DOTFILES_AUTO_SYNC_INTERVAL=3600
 ```
 
-This only runs in interactive shells, skips when local changes exist in `~/.dotfiles`, and reloads the shell only after a successful fast-forward update.
+This only runs in interactive shells, skips when uncommitted local changes exist in `~/.dotfiles`, fast-forwards when the remote is ahead, pushes when local commits are ahead, and stops when histories diverge.
 
 ### Starship Configuration
 
@@ -206,17 +217,36 @@ make uninstall
 .
 ├── install.sh              # Bootstrap installer
 ├── Makefile                # Installation orchestration
-├── cleanup-legacy.sh       # Legacy PowerShell cleanup script
+├── scripts/
+│   └── legacy/             # archived migration helpers
 ├── README.md
 └── dotfiles/
     ├── bash_profile
     ├── profile
     ├── bashrc
+    ├── zshrc
+    ├── config/
+    │   └── starship.toml
     └── shell/
         ├── aliases.sh      # Shell aliases
         ├── functions.sh    # Shell functions
-        └── exports.sh      # Environment variables
+        ├── optimized-tools.sh
+        ├── profiles/
+        └── exports.sh      # POSIX-friendly environment variables
 ```
+
+## 🧱 Shell Architecture
+
+The runtime is split by portability boundary:
+
+| Layer | Files | Compatibility |
+|-------|-------|---------------|
+| Login environment | `dotfiles/profile`, `dotfiles/shell/exports.sh` | POSIX `sh` syntax |
+| Bash interactive | `dotfiles/bashrc` | Bash |
+| Zsh interactive | `dotfiles/zshrc` | Zsh |
+| Shared interactive helpers | `aliases.sh`, `functions.sh`, `optimized-tools.sh` | Bash/Zsh |
+
+Keep PATH, locale, XDG paths, editor, and other process environment in `exports.sh`. Keep completions, prompt hooks, aliases, profile switching, and update helpers out of the POSIX layer.
 
 ## 🤝 Contributing
 
@@ -234,4 +264,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Note:** This is a Linux-native rewrite of a previous PowerShell configuration. All PowerShell-specific code has been replaced with POSIX-compliant shell scripts.
+**Note:** This is a Linux-native rewrite of a previous PowerShell configuration. The login environment is POSIX-friendly; interactive behavior intentionally targets Bash and Zsh.
