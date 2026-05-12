@@ -162,7 +162,6 @@ if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || command -v fzf >/de
         --cycle
         --scroll-off=5
         --inline-info
-        --preview-window=right:60%:border-left
         --bind ctrl-u:preview-half-page-up
         --bind ctrl-d:preview-half-page-down
         --bind ctrl-f:preview-page-down
@@ -173,9 +172,13 @@ if [ -x "$HOME/.local/bin/fzf" ] || [ -x "/usr/bin/fzf" ] || command -v fzf >/de
         --bind ctrl-e:toggle-preview
     '
     
-    # Add bat preview if available (check common paths first)
+    export FZF_CTRL_R_OPTS='--preview-window=hidden'
+    export FZF_COMPLETION_OPTS='--preview-window=hidden'
+
+    # Add bat preview only for file/directory pickers. History and completion
+    # entries are often not paths, so a global preview causes noisy bat errors.
     if command -v bat >/dev/null 2>&1; then
-        export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --preview 'bat --style=numbers --color=always --line-range :500 {}'"
+        export FZF_CTRL_T_OPTS="--preview-window=right:60%:border-left --preview 'bat --style=numbers --color=always --line-range :500 {}'"
     fi
 fi
 

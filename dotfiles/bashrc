@@ -10,11 +10,6 @@ shopt -s cdspell 2>/dev/null || true
 shopt -s globstar 2>/dev/null || true
 shopt -s nocaseglob 2>/dev/null || true
 
-# Load ble.sh early so it can attach after the rest of the shell is configured.
-if [[ -t 0 && -t 1 ]] && [ -f "$HOME/.local/share/blesh/out/ble.sh" ]; then
-    source -- "$HOME/.local/share/blesh/out/ble.sh" --attach=none
-fi
-
 # Guarded source to keep the shell usable when optional components are missing.
 source_if_exists() {
     local file="$1"
@@ -81,15 +76,42 @@ fi
 
 # FZF — prefer native bash integration, fall back to system files
 if command -v fzf >/dev/null 2>&1; then
-    if [[ -n "${BLE_VERSION:-}" ]]; then
-        ble-import -d integration/fzf-completion
-        ble-import -d integration/fzf-key-bindings
-    elif eval "$(fzf --bash 2>/dev/null)"; then
+    if eval "$(fzf --bash 2>/dev/null)"; then
         true
     else
         [ -f /usr/share/fzf/completion.bash ]   && source /usr/share/fzf/completion.bash
         [ -f /usr/share/fzf/key-bindings.bash ] && source /usr/share/fzf/key-bindings.bash
     fi
+
+    if declare -F __fzf_history__ >/dev/null 2>&1; then
+        bind -x '"\e[A": __fzf_history__'
+    fi
+
+    __dotfiles_fzf_tab_complete() {
+        local before after token head selection replacement
+        before=${READLINE_LINE:0:READLINE_POINT}
+        after=${READLINE_LINE:READLINE_POINT}
+        token=${before##*[[:space:]]}
+        head=${before:0:${#before}-${#token}}
+
+        selection=$(
+            {
+                compgen -c -- "$token"
+                compgen -a -- "$token"
+                compgen -f -- "$token"
+                compgen -d -- "$token"
+            } 2>/dev/null | awk '!seen[$0]++' | fzf --query "$token" --prompt 'Complete> ' ${FZF_COMPLETION_OPTS:-}
+        ) || return
+
+        [[ -n $selection ]] || return
+        printf -v replacement '%q' "$selection"
+        [[ -d $selection ]] && replacement="${replacement}/" || replacement="${replacement} "
+
+        READLINE_LINE="${head}${replacement}${after}"
+        READLINE_POINT=$((${#head} + ${#replacement}))
+    }
+
+    bind -x '"\t": __dotfiles_fzf_tab_complete'
 fi
 
 # OpenClaw completion (if installed)
@@ -109,12 +131,7 @@ done
 # Atuin shell history (if installed)
 if [[ -t 0 && -t 1 ]] && command -v atuin >/dev/null 2>&1; then
     [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
-    eval "$(atuin init bash)"
-fi
-
-# Attach ble.sh after prompt/history integrations are initialized.
-if [[ -t 0 && -t 1 && ${BLE_VERSION-} ]]; then
-    ble-attach
+    eval "$(atuin init bash --disable-ctrl-r --disable-up-arrow)"
 fi
 
 # Optional automatic dotfiles sync on shell startup.
