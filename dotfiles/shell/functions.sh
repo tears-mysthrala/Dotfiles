@@ -966,7 +966,8 @@ cleanup() {
         pacman)
             echo "🗑️  Cleaning Pacman cache..."
             # Remove stuck temp download files that cause "Error reading fd 7"
-            sudo rm -f /var/cache/pacman/pkg/download-* 2>/dev/null || true
+            # (use find so the wildcard is evaluated as root, not by the user's shell)
+            sudo find /var/cache/pacman/pkg/ -maxdepth 1 -name 'download-*' -delete 2>/dev/null || true
             sudo pacman -Sc --noconfirm
             if command -v paccache >/dev/null 2>&1; then
                 sudo paccache -rk 2
