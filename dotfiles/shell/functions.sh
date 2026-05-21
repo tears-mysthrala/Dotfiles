@@ -444,6 +444,7 @@ _upgrade_fix_cmd() {
         pyenv)        echo "cd \${PYENV_ROOT:-\$HOME/.pyenv} && git pull" ;;
         flutter)      echo "flutter upgrade" ;;
         pi)           echo "pi update" ;;
+        pass-cli)     echo "pass-cli update" ;;
         uv)           echo "uv self update && uv tool upgrade --all" ;;
         pipx)         echo "pipx upgrade-all" ;;
         cargo)        echo "cargo install cargo-update" ;;
@@ -457,6 +458,7 @@ _upgrade_fix_cmd() {
         nvim)         echo "nvim --headless '+Lazy! sync' +qa" ;;
         gh)           echo "gh extension upgrade --all" ;;
         gcloud)       echo "gcloud components update --quiet" ;;
+        codex)        echo "codex update" ;;
         claude)       echo "claude update" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
@@ -639,9 +641,63 @@ _upgrade_hyprpm() {
     hyprpm update
 }
 
+_upgrade_git_fetch_tags_repair_refs() {
+    local repo="$1"
+    local output rc ref ref_path refs
+    local repaired=0
+
+    output=$(git -C "$repo" fetch --tags 2>&1) && {
+        [[ -n "$output" ]] && printf '%s\n' "$output"
+        return 0
+    }
+    rc=$?
+
+    refs=$(
+        printf '%s\n' "$output" |
+            sed -n \
+                -e 's/^fatal: bad object \(refs\/remotes\/[^ ]*\)$/\1/p' \
+                -e 's/^error: \(refs\/remotes\/[^ ]*\) does not point to a valid object!$/\1/p' |
+            sort -u
+    )
+
+    if [[ -z "$refs" ]]; then
+        printf '%s\n' "$output" >&2
+        return "$rc"
+    fi
+
+    while IFS= read -r ref; do
+        [[ -n "$ref" ]] || continue
+        ref_path=$(git -C "$repo" rev-parse --path-format=absolute --git-path "$ref" 2>/dev/null)
+        git -C "$repo" update-ref -d "$ref" 2>/dev/null || {
+            [[ -n "$ref_path" ]] && rm -f -- "$ref_path"
+        }
+        repaired=$((repaired + 1))
+    done <<EOF
+$refs
+EOF
+
+    output=$(git -C "$repo" fetch --prune --tags 2>&1) || {
+        rc=$?
+        printf '%s\n' "$output" >&2
+        return "$rc"
+    }
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+    _UPGRADE_STEP_NOTE="reparadas $repaired ref(s) remotas corruptas"
+}
+
 _upgrade_flutter() {
-    command -v flutter >/dev/null 2>&1 || return 0
-    flutter upgrade
+    local flutter_bin flutter_real sdk_dir
+    flutter_bin=$(_command_path_no_windows flutter)
+    [[ -n "$flutter_bin" ]] || return 0
+
+    flutter_real=$(readlink -f "$flutter_bin" 2>/dev/null || printf '%s\n' "$flutter_bin")
+    sdk_dir=$(cd "$(dirname "$flutter_real")/.." 2>/dev/null && pwd -P) || sdk_dir=""
+
+    if [[ -n "$sdk_dir" && -d "$sdk_dir/.git" ]]; then
+        _upgrade_git_fetch_tags_repair_refs "$sdk_dir" || return $?
+    fi
+
+    "$flutter_bin" upgrade
 }
 
 _upgrade_tldr() {
@@ -688,6 +744,16 @@ _upgrade_pi() {
         return 0
     fi
     pi update
+}
+
+_upgrade_pass_cli() {
+    command -v pass-cli >/dev/null 2>&1 || return 0
+    pass-cli update
+}
+
+_upgrade_codex() {
+    command -v codex >/dev/null 2>&1 || return 0
+    codex update
 }
 
 _upgrade_system() {
@@ -807,6 +873,7 @@ upgrade() {
         "pyenv:_upgrade_pyenv"
         "flutter:_upgrade_flutter"
         "pi:_upgrade_pi"
+        "pass-cli:_upgrade_pass_cli"
         "uv:_upgrade_uv"
         "pipx:_upgrade_pipx"
         "cargo:_upgrade_cargo"
@@ -821,6 +888,7 @@ upgrade() {
         "nvim:_upgrade_nvim"
         "gh:_upgrade_gh"
         "gcloud:_upgrade_gcloud"
+        "codex:_upgrade_codex"
         "claude:_upgrade_claude"
         "dotfiles:_upgrade_dotfiles"
         "pacdiff:_upgrade_pacdiff"
