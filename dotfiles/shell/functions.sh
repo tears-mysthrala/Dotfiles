@@ -444,7 +444,7 @@ _upgrade_fix_cmd() {
         pyenv)        echo "cd \${PYENV_ROOT:-\$HOME/.pyenv} && git pull" ;;
         flutter)      echo "flutter upgrade" ;;
         pi)           echo "pi update" ;;
-        pass-cli)     echo "pass-cli update" ;;
+        pass-cli)     echo "pass-cli login" ;;
         uv)           echo "uv self update && uv tool upgrade --all" ;;
         pipx)         echo "pipx upgrade-all" ;;
         cargo)        echo "cargo install cargo-update" ;;
@@ -748,7 +748,22 @@ _upgrade_pi() {
 
 _upgrade_pass_cli() {
     command -v pass-cli >/dev/null 2>&1 || return 0
-    pass-cli update
+
+    local output rc
+    output=$(pass-cli update 2>&1)
+    rc=$?
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+
+    if [[ $rc -eq 0 ]]; then
+        return 0
+    fi
+
+    if grep -qiE 'Local encryption key not found|forcing logout|login|authenticate' <<<"$output"; then
+        _UPGRADE_STEP_NOTE="sesión cerrada por seguridad → pass-cli login"
+        return 0
+    fi
+
+    return "$rc"
 }
 
 _upgrade_codex() {
@@ -820,7 +835,13 @@ _upgrade_dotfiles() {
     }
     remote="${upstream%%/*}"
 
-    git -C "$dotfiles_dir" fetch --prune "$remote" || return 1
+    if ! GIT_TERMINAL_PROMPT=0 timeout 30 git -C "$dotfiles_dir" fetch --prune "$remote"; then
+        sleep 2
+        if ! GIT_TERMINAL_PROMPT=0 timeout 30 git -C "$dotfiles_dir" fetch --prune "$remote"; then
+            _UPGRADE_STEP_NOTE="fetch falló por red/TLS → se omite sync"
+            return 0
+        fi
+    fi
     after=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null)
 
     read -r ahead behind < <(git -C "$dotfiles_dir" rev-list --left-right --count "HEAD...${upstream}" 2>/dev/null)
