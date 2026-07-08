@@ -21,6 +21,29 @@ _path_prepend() {
     esac
 }
 
+# Move a PATH entry to the front without leaving duplicates behind.
+_path_promote() {
+    _path_promote_entry="$1"
+    _path_promote_old_path="$PATH"
+    _path_promote_new_path=""
+
+    while [ -n "$_path_promote_old_path" ]; do
+        _path_promote_part="${_path_promote_old_path%%:*}"
+        if [ "$_path_promote_old_path" = "$_path_promote_part" ]; then
+            _path_promote_old_path=""
+        else
+            _path_promote_old_path="${_path_promote_old_path#*:}"
+        fi
+
+        [ -n "$_path_promote_part" ] || continue
+        [ "$_path_promote_part" = "$_path_promote_entry" ] && continue
+
+        _path_promote_new_path="${_path_promote_new_path:+$_path_promote_new_path:}$_path_promote_part"
+    done
+
+    PATH="$_path_promote_entry${_path_promote_new_path:+:$_path_promote_new_path}"
+}
+
 # Remove exact duplicate PATH entries while preserving the first occurrence.
 _path_dedupe() {
     _path_dedupe_old_path="$PATH"
@@ -74,6 +97,8 @@ _path_prepend "$HOME/.atuin/bin"
 _path_prepend "$HOME/.opencode/bin"
 _path_prepend "$HOME/.npm-global/bin"
 export npm_config_prefix="$HOME/.npm-global"
+export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+_path_prepend "$PNPM_HOME/bin"
 
 # Cargo (Rust)
 if [ -d "$HOME/.cargo/bin" ]; then
@@ -93,6 +118,8 @@ if [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
     else
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash 2>/dev/null || true)"
     fi
+    # brew shellenv prepends Linuxbrew's bundled npm. Prefer user-updated npm.
+    _path_promote "$HOME/.npm-global/bin"
 fi
 
 # Node Version Manager (lazy-loaded, see functions.sh for nvm function)
@@ -306,5 +333,7 @@ fi
 # Clean up helper function
 # ============================================================================
 unset -f _path_prepend 2>/dev/null || true
+unset -f _path_promote 2>/dev/null || true
 unset -f _path_dedupe 2>/dev/null || true
+unset _path_promote_entry _path_promote_old_path _path_promote_new_path _path_promote_part 2>/dev/null || true
 unset _path_dedupe_old_path _path_dedupe_new_path _path_dedupe_entry _dotfiles_ulimit_n 2>/dev/null || true

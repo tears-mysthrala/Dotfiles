@@ -114,11 +114,8 @@ if command -v fzf >/dev/null 2>&1; then
     bind -x '"\t": __dotfiles_fzf_tab_complete'
 fi
 
-# OpenClaw completion (if installed)
-if command -v openclaw >/dev/null 2>&1; then
-    [ -f "$HOME/.openclaw/completions/openclaw.bash" ] && \
-        source "$HOME/.openclaw/completions/openclaw.bash"
-fi
+# OpenClaw Completion
+[ -f "/home/Fedora/.openclaw/completions/openclaw.bash" ] && source "/home/Fedora/.openclaw/completions/openclaw.bash"
 
 # ============================================================================
 # 4. Local overrides (machine-specific, not tracked in git)

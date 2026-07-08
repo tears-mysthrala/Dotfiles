@@ -413,7 +413,11 @@ _upgrade_sudo_keepalive_start() {
         return 0
     fi
 
-    sudo -v || return 0
+    if [ -t 0 ]; then
+        sudo -v || return 0
+    else
+        sudo -n -v >/dev/null 2>&1 || return 0
+    fi
 
     (
         while true; do
@@ -461,6 +465,7 @@ _upgrade_fix_cmd() {
         codex)        echo "codex update" ;;
         claude)       echo "claude update" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
+        dotfiles-check) echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
     esac
 }
@@ -617,11 +622,16 @@ _upgrade_brew() {
 }
 
 _upgrade_pacdiff() {
-    command -v pacdiff >/dev/null 2>&1 || return 0
-    local files
-    files=$(pacdiff --output --pacmandb 2>/dev/null) || true
+    local pacdiff_bin files
+    pacdiff_bin=$(_command_path_no_windows pacdiff)
+    if [[ -z "$pacdiff_bin" ]]; then
+        _UPGRADE_STEP_NOTE="Windows pacdiff en PATH → skip"
+        return 0
+    fi
+
+    files=$("$pacdiff_bin" --output --pacmandb 2>/dev/null) || true
     [[ -n "$files" ]] || return 0
-    pacdiff --sudo --backup
+    "$pacdiff_bin" --sudo --backup
 }
 
 _upgrade_fwupdmgr() {
@@ -716,12 +726,22 @@ _upgrade_gh() {
 }
 
 _upgrade_gcloud() {
-    command -v gcloud >/dev/null 2>&1 || return 0
-    if gcloud components update --quiet 2>&1 | grep -q "managed by an external package manager"; then
+    local gcloud_bin output rc
+    gcloud_bin=$(_command_path_no_windows gcloud)
+    if [[ -z "$gcloud_bin" ]]; then
+        _UPGRADE_STEP_NOTE="Windows gcloud en PATH → skip"
+        return 0
+    fi
+
+    output=$("$gcloud_bin" components update --quiet 2>&1)
+    rc=$?
+    if grep -q "managed by an external package manager" <<<"$output"; then
         _UPGRADE_STEP_NOTE="pacman-managed gcloud → skip"
         return 0
     fi
-    gcloud components update --quiet
+
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+    return "$rc"
 }
 
 _upgrade_claude() {
@@ -778,8 +798,10 @@ _upgrade_system() {
         printf '#!/bin/sh\nprintf "%%s\n" "%s"\n' "$DOTFILES_SUDO_PASS" > "$_askpass"
         chmod 700 "$_askpass"
         _sudo_pipe() { SUDO_ASKPASS="$_askpass" sudo -A "$@"; }
-    else
+    elif [ -t 0 ]; then
         _sudo_pipe() { sudo "$@"; }
+    else
+        _sudo_pipe() { sudo -n "$@"; }
     fi
 
     local rc=0
@@ -821,6 +843,8 @@ _upgrade_dotfiles() {
     [[ -d "$dotfiles_dir/.git" ]] || return 0
 
     local before after count upstream remote branch ahead behind
+    _dotfiles_normalize_generated_edits "$dotfiles_dir" || return $?
+
     before=$(git -C "$dotfiles_dir" rev-parse HEAD 2>/dev/null) || return 1
 
     if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
@@ -877,6 +901,90 @@ _upgrade_dotfiles() {
     fi
 }
 
+_dotfiles_prune_duplicate_openclaw_completion() {
+    local file="$1"
+    local completion_path="$2"
+    local tmp
+
+    [[ -f "$file" ]] || return 0
+    tmp=$(mktemp) || return 1
+
+    awk -v completion_path="$completion_path" '
+        function is_completion_line(line) {
+            return index(line, completion_path) > 0
+        }
+
+        drop_completion_line {
+            if (is_completion_line($0)) {
+                drop_completion_line = 0
+                next
+            }
+            drop_completion_line = 0
+        }
+
+        just_kept_header {
+            print
+            just_kept_header = 0
+            next
+        }
+
+        $0 == "# OpenClaw Completion" {
+            if (kept_header) {
+                drop_completion_line = 1
+                next
+            }
+            kept_header = 1
+            just_kept_header = 1
+            print
+            next
+        }
+
+        kept_header && is_completion_line($0) {
+            next
+        }
+
+        { print }
+    ' "$file" > "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+
+    if ! cmp -s "$file" "$tmp"; then
+        cp "$tmp" "$file" || {
+            rm -f "$tmp"
+            return 1
+        }
+    fi
+
+    rm -f "$tmp"
+}
+
+_dotfiles_normalize_generated_edits() {
+    local dotfiles_dir="$1"
+
+    _dotfiles_prune_duplicate_openclaw_completion \
+        "$dotfiles_dir/dotfiles/bashrc" \
+        "/home/Fedora/.openclaw/completions/openclaw.bash" || return $?
+    _dotfiles_prune_duplicate_openclaw_completion \
+        "$dotfiles_dir/dotfiles/zshrc" \
+        "/home/Fedora/.openclaw/completions/openclaw.zsh" || return $?
+}
+
+_upgrade_dotfiles_postcheck() {
+    local dotfiles_dir="$HOME/.dotfiles"
+    [[ -d "$dotfiles_dir/.git" ]] || return 0
+
+    _dotfiles_normalize_generated_edits "$dotfiles_dir" || return $?
+
+    if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
+       ! git -C "$dotfiles_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+        _UPGRADE_STEP_NOTE="cambios post-update en ~/.dotfiles → revisar"
+        return 0
+    fi
+
+    _UPGRADE_STEP_NOTE="limpio"
+}
+
 upgrade() {
     _upgrade_results=()
     _upgrade_errors=()
@@ -885,6 +993,7 @@ upgrade() {
     local _upgrade_sudo_keepalive_pid=""
 
     local -a steps=(
+        "dotfiles:_upgrade_dotfiles"
         "system:_upgrade_system"
         "brew:_upgrade_brew"
         "firmware:_upgrade_fwupdmgr"
@@ -911,7 +1020,7 @@ upgrade() {
         "gcloud:_upgrade_gcloud"
         "codex:_upgrade_codex"
         "claude:_upgrade_claude"
-        "dotfiles:_upgrade_dotfiles"
+        "dotfiles-check:_upgrade_dotfiles_postcheck"
         "pacdiff:_upgrade_pacdiff"
     )
 
