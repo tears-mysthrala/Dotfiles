@@ -98,6 +98,7 @@ _path_prepend "$HOME/.opencode/bin"
 _path_prepend "$HOME/.npm-global/bin"
 export npm_config_prefix="$HOME/.npm-global"
 export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+_path_prepend "$PNPM_HOME"
 _path_prepend "$PNPM_HOME/bin"
 
 # Cargo (Rust)

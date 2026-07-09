@@ -577,6 +577,11 @@ _upgrade_yarn() {
 
 _upgrade_pnpm() {
     command -v pnpm >/dev/null 2>&1 || return 0
+    export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+    case ":$PATH:" in
+        *:"$PNPM_HOME":*) ;;
+        *) export PATH="$PNPM_HOME${PATH:+:$PATH}" ;;
+    esac
     pnpm update -g
 }
 
