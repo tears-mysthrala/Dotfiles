@@ -159,7 +159,7 @@ _dotfiles_sync_run() {
 
     if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
        ! git -C "$dotfiles_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
-        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: local changes detected in ~/.dotfiles; skipping pull" >&2
+        [[ "$mode" == "manual" ]] && echo "dotfiles-sync: local changes detected in ~/.dotfiles; skipping sync" >&2
         rm -f "$lock_file" 2>/dev/null || true
         unset DOTFILES_AUTO_SYNC_RUNNING
         return 0
@@ -854,7 +854,7 @@ _upgrade_dotfiles() {
 
     if ! git -C "$dotfiles_dir" diff --quiet --ignore-submodules -- 2>/dev/null || \
        ! git -C "$dotfiles_dir" diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
-        _UPGRADE_STEP_NOTE="cambios locales en ~/.dotfiles → se omite pull"
+        _UPGRADE_STEP_NOTE="cambios locales en ~/.dotfiles → se omite sync"
         return 0
     fi
 
