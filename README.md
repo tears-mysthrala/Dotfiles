@@ -312,7 +312,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ## 📄 License
 
-No `LICENSE` file currently ships with this repository, so default copyright applies. Choosing and adding a license is a pending owner decision (previous README revisions referenced MIT, but no license text was ever committed).
+Released under the [MIT License](LICENSE).
 
 ## 🙏 Acknowledgments
 
