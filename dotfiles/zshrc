@@ -79,8 +79,8 @@ if command -v fzf >/dev/null 2>&1; then
     fi
 fi
 
-# OpenClaw Completion
-[ -f "/home/Fedora/.openclaw/completions/openclaw.zsh" ] && source "/home/Fedora/.openclaw/completions/openclaw.zsh"
+# OpenClaw Completion (machine-local; guarded so it is a no-op elsewhere)
+[ -f "$HOME/.openclaw/completions/openclaw.zsh" ] && source "$HOME/.openclaw/completions/openclaw.zsh"
 
 # ============================================================================
 # Zsh Completion System (Optimized)
