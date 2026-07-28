@@ -1,4 +1,11 @@
 # Migration Commands - PowerShell to Linux Native
+
+> **Historical record.** This migration was already executed. The PowerShell
+> configuration it refers to no longer exists in this repository, and the
+> helper scripts it mentions now live under `scripts/legacy/`. Do **not** run
+> these commands on a current checkout; they are kept only as a record of how
+> the migration was performed.
+
 # Execute these commands in order to complete the migration
 
 ## PHASE 1: Backup (Optional but Recommended)
