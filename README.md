@@ -4,6 +4,14 @@
 
 Modern Linux dotfiles with a portable POSIX environment layer, Bash/Zsh interactive shells, switchable shell profiles, safe cross-machine syncing, and optional auto-sync on shell startup.
 
+## 🎯 Scope
+
+Personal **Linux** dotfiles. This repository is one piece of a multi-repo setup and does not try to be a full workstation provisioning system:
+
+- **Dotfiles** (this repo) — portable POSIX login environment plus Bash/Zsh interactive configuration, switchable shell profiles, aliases, and shell functions. It works standalone on any supported distro, and layers on top of omora when it is present.
+- **[omora](https://github.com/tears-mysthrala/omora)** — opinionated Fedora workstation environment (omarchy fork). These dotfiles detect it through `OMORA_PATH` and source its base when available, but never require it.
+- **[PowerShell-profile](https://github.com/tears-mysthrala/PowerShell-profile)** — the Windows/PowerShell counterpart. Nothing in this repository targets Windows.
+
 ## 🚀 Quick Start
 
 ```bash
@@ -20,8 +28,36 @@ The installer will:
 1. Detect your Linux distribution
 2. Install `make` and `git` if needed
 3. Install modern CLI tools (starship, zoxide, fzf, eza, bat)
-4. Create symbolic links to shell configuration
-5. Configure your login and interactive shell entry points
+4. Back up any pre-existing config files to `~/.dotfiles-backup/<timestamp>/`
+5. Create symbolic links to shell configuration
+6. Configure your login and interactive shell entry points
+
+Preview every step without changing the system:
+
+```bash
+./install.sh --dry-run
+```
+
+## 📝 What the installer changes on your system
+
+`install.sh` only installs `make`/`git`/`curl` when missing, then delegates to `make install` (`deps` + `link` + `config`).
+
+`make link` and `make config` create the following symlinks. If a regular file already exists at any of these paths, it is moved to `~/.dotfiles-backup/<timestamp>/` first; re-running over the installer's own symlinks is a no-op.
+
+| Path | Points to |
+|------|-----------|
+| `~/.bashrc` | `dotfiles/bashrc` |
+| `~/.bash_profile` | `dotfiles/bash_profile` |
+| `~/.profile` | `dotfiles/profile` |
+| `~/.zshrc` | `dotfiles/zshrc` |
+| `~/.config/shell/aliases.sh` | `dotfiles/shell/aliases.sh` |
+| `~/.config/shell/functions.sh` | `dotfiles/shell/functions.sh` |
+| `~/.config/shell/exports.sh` | `dotfiles/shell/exports.sh` |
+| `~/.config/shell/optimized-tools.sh` | `dotfiles/shell/optimized-tools.sh` |
+| `~/.config/shell/profiles` | `dotfiles/shell/profiles` |
+| `~/.config/starship.toml` | `dotfiles/config/starship.toml` |
+
+`make deps` installs the CLI tools either through `cargo` (when available) or by downloading binaries into `~/.local/bin`; `fzf` is cloned to `~/.fzf`. At runtime the shell may also write `~/.config/shell/profile.local.sh`, the persisted profile selector created by `switch-profile`.
 
 ## 📦 What's Included
 
@@ -95,13 +131,27 @@ make eza         # Install Eza
 make bat         # Install Bat
 ```
 
-## 🐧 Supported Distributions
+## 🐧 Supported Shells and Distributions
 
-- **Debian/Ubuntu** (apt)
-- **Fedora/RHEL** (dnf/yum)
-- **Arch Linux** (pacman)
-- **openSUSE** (zypper)
-- **Alpine Linux** (apk)
+Shells:
+
+| Shell | Status |
+|-------|--------|
+| **Bash** | Supported; covered by CI smoke tests |
+| **Zsh** | Supported; covered by CI smoke tests |
+| POSIX `sh` | Login layer only (`profile`, `exports.sh` are POSIX-checked); not an interactive target |
+
+Distributions (package-manager detection in `install.sh` / `upgrade()`):
+
+| Distribution family | Package manager | Status |
+|---------------------|-----------------|--------|
+| Debian / Ubuntu | `apt` | Handled by installer; CI runs on `ubuntu-latest` |
+| Fedora / RHEL | `dnf` / `yum` | Handled by installer; not exercised in CI |
+| Arch Linux | `pacman` | Handled by installer; not exercised in CI |
+| openSUSE | `zypper` | Handled by installer; not exercised in CI |
+| Alpine Linux | `apk` | Handled by installer; not exercised in CI |
+
+"Handled by installer" means the detection and install paths exist in `install.sh` and the Makefile; only Ubuntu is continuously tested in GitHub Actions.
 
 ## 🎨 Features
 
@@ -151,7 +201,7 @@ dotfiles-sync  # Fast-forward ~/.dotfiles and reload shell when needed
 
 ### Local Overrides
 
-Create local configuration files that won't be tracked by git:
+Machine-local configuration lives **outside** the repository and is never committed. Public defaults ship in the repo; anything personal or machine-specific belongs in override files:
 
 ```bash
 # Custom exports
@@ -165,7 +215,13 @@ Create local configuration files that won't be tracked by git:
 
 # Persisted profile selector (written by switch-profile)
 ~/.config/shell/profile.local.sh
+
+# Whole-entry-point overrides, sourced last
+~/.bashrc.local
+~/.zshrc.local
 ```
+
+The `.local.sh` files are sourced at the very end of the interactive startup, so they win over the tracked defaults. `*.local.sh` and `*.local` are also covered by `.gitignore`, so overrides stay untracked even if placed inside a checkout.
 
 ### Profiles
 
@@ -215,10 +271,12 @@ make uninstall
 
 ```
 .
-├── install.sh              # Bootstrap installer
+├── install.sh              # Bootstrap installer (supports --dry-run)
 ├── Makefile                # Installation orchestration
 ├── scripts/
 │   └── legacy/             # archived migration helpers
+├── tests/
+│   └── smoke.bash          # CI smoke tests (syntax, doctor, profiles)
 ├── README.md
 └── dotfiles/
     ├── bash_profile
@@ -254,14 +312,14 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+No `LICENSE` file currently ships with this repository, so default copyright applies. Choosing and adding a license is a pending owner decision (previous README revisions referenced MIT, but no license text was ever committed).
 
 ## 🙏 Acknowledgments
 
 - Inspired by the modern CLI tools ecosystem
 - Built for cross-distribution compatibility
-- Ported from a PowerShell configuration
+- Windows/PowerShell counterpart: [PowerShell-profile](https://github.com/tears-mysthrala/PowerShell-profile)
 
 ---
 
-**Note:** This is a Linux-native rewrite of a previous PowerShell configuration. The login environment is POSIX-friendly; interactive behavior intentionally targets Bash and Zsh.
+**Note:** This repository contains the Linux-native dotfiles only. The login environment is POSIX-friendly; interactive behavior intentionally targets Bash and Zsh. The PowerShell → Linux migration that produced this tree is recorded as historical documentation in `docs/legacy/MIGRATION.md`.
