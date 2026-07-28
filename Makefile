@@ -16,6 +16,7 @@ CONFIG_DIR := $(HOME)/.config
 SHELL_CONFIG_DIR := $(CONFIG_DIR)/shell
 LOCAL_BIN := $(HOME)/.local/bin
 DOTFILES_DIR := $(CURDIR)/dotfiles
+BACKUP_DIR := $(HOME)/.dotfiles-backup
 SHELLCHECK_OPTS ?= -S error
 
 # Shell detection
@@ -29,7 +30,7 @@ help:
 	@echo ""
 	@echo "  $(GREEN)install$(NC)     - Full installation (deps + link + config)"
 	@echo "  $(GREEN)deps$(NC)        - Install modern CLI tools"
-	@echo "  $(GREEN)link$(NC)        - Create symbolic links"
+	@echo "  $(GREEN)link$(NC)        - Create symbolic links (existing files are backed up first)"
 	@echo "  $(GREEN)config$(NC)      - Configure shell initialization"
 	@echo "  $(GREEN)doctor$(NC)      - Validate links, profiles, and optional tools"
 	@echo "  $(GREEN)lint$(NC)        - Run ShellCheck when available"
@@ -57,22 +58,43 @@ deps: starship zoxide fzf eza bat
 link:
 	@printf "%b\n" "$(BLUE)Creating symbolic links...$(NC)"
 	@mkdir -p $(SHELL_CONFIG_DIR)
-	# Link shell modules
-	@ln -sf $(DOTFILES_DIR)/shell/aliases.sh $(SHELL_CONFIG_DIR)/aliases.sh
-	@ln -sf $(DOTFILES_DIR)/shell/functions.sh $(SHELL_CONFIG_DIR)/functions.sh
-	@ln -sf $(DOTFILES_DIR)/shell/exports.sh $(SHELL_CONFIG_DIR)/exports.sh
-	@ln -sf $(DOTFILES_DIR)/shell/optimized-tools.sh $(SHELL_CONFIG_DIR)/optimized-tools.sh
-	@ln -sfn $(DOTFILES_DIR)/shell/profiles $(SHELL_CONFIG_DIR)/profiles
-	# Link entry point files
-	@ln -sf $(DOTFILES_DIR)/bashrc $(HOME)/.bashrc
-	@ln -sf $(DOTFILES_DIR)/bash_profile $(HOME)/.bash_profile
-	@ln -sf $(DOTFILES_DIR)/profile $(HOME)/.profile
-	@ln -sf $(DOTFILES_DIR)/zshrc $(HOME)/.zshrc
+	@backup_dir="$(BACKUP_DIR)/$$(date +%Y%m%d-%H%M%S)"; \
+	for pair in \
+		"$(DOTFILES_DIR)/shell/aliases.sh:$(SHELL_CONFIG_DIR)/aliases.sh" \
+		"$(DOTFILES_DIR)/shell/functions.sh:$(SHELL_CONFIG_DIR)/functions.sh" \
+		"$(DOTFILES_DIR)/shell/exports.sh:$(SHELL_CONFIG_DIR)/exports.sh" \
+		"$(DOTFILES_DIR)/shell/optimized-tools.sh:$(SHELL_CONFIG_DIR)/optimized-tools.sh" \
+		"$(DOTFILES_DIR)/shell/profiles:$(SHELL_CONFIG_DIR)/profiles" \
+		"$(DOTFILES_DIR)/bashrc:$(HOME)/.bashrc" \
+		"$(DOTFILES_DIR)/bash_profile:$(HOME)/.bash_profile" \
+		"$(DOTFILES_DIR)/profile:$(HOME)/.profile" \
+		"$(DOTFILES_DIR)/zshrc:$(HOME)/.zshrc"; \
+	do \
+		src="$${pair%%:*}"; \
+		dest="$${pair##*:}"; \
+		if [ -e "$$dest" ] || [ -L "$$dest" ]; then \
+			if [ "$$(readlink "$$dest" 2>/dev/null || true)" != "$$src" ]; then \
+				mkdir -p "$$backup_dir"; \
+				mv "$$dest" "$$backup_dir/$$(basename "$$dest")"; \
+				printf "%b\n" "$(YELLOW)! backed up $$dest -> $$backup_dir/$$(basename "$$dest")$(NC)"; \
+			fi; \
+		fi; \
+		ln -sfn "$$src" "$$dest"; \
+	done
 	@printf "%b\n" "$(GREEN)✓ Symbolic links created$(NC)"
+	@printf "%b\n" "$(YELLOW)Note: replaced files, if any, were backed up under $(BACKUP_DIR)/<timestamp>$(NC)"
 
 config:
 	@printf "%b\n" "$(BLUE)Configuring Starship prompt...$(NC)"
 	@mkdir -p $(CONFIG_DIR)
+	@if [ -e "$(CONFIG_DIR)/starship.toml" ] || [ -L "$(CONFIG_DIR)/starship.toml" ]; then \
+		if [ "$$(readlink "$(CONFIG_DIR)/starship.toml" 2>/dev/null || true)" != "$(DOTFILES_DIR)/config/starship.toml" ]; then \
+			backup_dir="$(BACKUP_DIR)/$$(date +%Y%m%d-%H%M%S)"; \
+			mkdir -p "$$backup_dir"; \
+			mv "$(CONFIG_DIR)/starship.toml" "$$backup_dir/starship.toml"; \
+			printf "%b\n" "$(YELLOW)! backed up $(CONFIG_DIR)/starship.toml -> $$backup_dir/starship.toml$(NC)"; \
+		fi; \
+	fi
 	@ln -sf $(DOTFILES_DIR)/config/starship.toml $(CONFIG_DIR)/starship.toml
 	@printf "%b\n" "$(GREEN)✓ Shell configuration completed$(NC)"
 	@printf "%b\n" "$(YELLOW)Note: Entry point files (.bashrc/.zshrc) are now linked directly$(NC)"
@@ -90,8 +112,7 @@ clean:
 	@rm -f $(HOME)/.profile
 	@rm -f $(HOME)/.zshrc
 	@printf "%b\n" "$(GREEN)✓ Symbolic links removed$(NC)"
-	@printf "%b\n" "$(YELLOW)Warning: Your original shell entry files have been removed$(NC)"
-	@printf "%b\n" "$(YELLOW)Backup them before running 'make clean' if needed$(NC)"
+	@printf "%b\n" "$(YELLOW)Note: any pre-existing files replaced by 'make link' were backed up under $(BACKUP_DIR)/$(NC)"
 
 doctor:
 	@printf "%b\n" "$(BLUE)Running dotfiles doctor...$(NC)"

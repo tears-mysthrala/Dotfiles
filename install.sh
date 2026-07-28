@@ -31,6 +31,26 @@ print_error() {
     printf "${RED}[✗]${NC} %s\n" "$1"
 }
 
+usage() {
+    cat <<'EOF'
+Usage: ./install.sh [OPTIONS]
+
+Bootstrap installer for the dotfiles environment.
+
+Options:
+  -n, --dry-run   Show what would be done without changing the system.
+                  Prints the detected distro/package manager, which
+                  bootstrap packages are missing, and a dry-run of
+                  'make install'. Nothing is installed or linked.
+  -h, --help      Show this help message and exit.
+
+With no options, the installer detects the distribution, installs
+make/git/curl if needed, and runs 'make install' (deps + link + config).
+The 'make link' step backs up any pre-existing config files to
+~/.dotfiles-backup/<timestamp>/ before replacing them with symlinks.
+EOF
+}
+
 # Detect distribution
 detect_distro() {
     if [ -f /etc/os-release ]; then
@@ -111,20 +131,66 @@ install_deps() {
 
 # Main installation function
 main() {
+    DRY_RUN=0
+    for arg in "$@"; do
+        case "$arg" in
+            -n|--dry-run)
+                DRY_RUN=1
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $arg"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
     printf "\n"
     print_info "╔═══════════════════════════════════════════╗"
     print_info "║   Dotfiles Bootstrap Installation         ║"
     print_info "╚═══════════════════════════════════════════╝"
     printf "\n"
-    
+
     # Detect system
     DISTRO=$(detect_distro)
     PKG_MANAGER=$(detect_package_manager)
     check_root
-    
+
     print_info "Detected distribution: $DISTRO"
     print_info "Detected package manager: $PKG_MANAGER"
-    
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        printf "\n"
+        print_info "Dry-run mode: no changes will be made"
+        for tool in make git curl; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                print_success "$tool is already installed"
+            else
+                print_warning "$tool would be installed via $PKG_MANAGER"
+            fi
+        done
+        printf "\n"
+        if [ -f "./Makefile" ]; then
+            if command -v make >/dev/null 2>&1; then
+                print_info "Dry-run of 'make install':"
+                make -n install
+            else
+                print_warning "make is not installed; cannot preview 'make install'"
+            fi
+        else
+            print_error "Makefile not found in current directory"
+            exit 1
+        fi
+        printf "\n"
+        print_info "Dry-run complete. Re-run without --dry-run to apply."
+        printf "\n"
+        exit 0
+    fi
+
     # Check if make is installed
     if ! command -v make >/dev/null 2>&1; then
         print_warning "Make is not installed"
