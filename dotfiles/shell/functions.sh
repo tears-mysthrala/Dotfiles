@@ -641,8 +641,8 @@ _upgrade_pacdiff() {
 
 _upgrade_fwupdmgr() {
     command -v fwupdmgr >/dev/null 2>&1 || return 0
-    fwupdmgr refresh --force 2>/dev/null || fwupdmgr refresh 2>/dev/null || true
-    fwupdmgr get-updates 2>/dev/null || true
+    fwupdmgr refresh --force || fwupdmgr refresh || return $?
+    fwupdmgr update --assume-yes --no-reboot-check
 }
 
 _upgrade_tmux() {
@@ -717,7 +717,45 @@ _upgrade_flutter() {
 
 _upgrade_tldr() {
     command -v tldr >/dev/null 2>&1 || return 0
-    tldr --update
+    local output rc archive cache_dir
+    output=$(tldr --update 2>&1)
+    rc=$?
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+
+    # tldr 3.4.x can print an update error while still exiting successfully.
+    if [[ $rc -eq 0 && "$output" != *"Error:"* ]]; then
+        return 0
+    fi
+
+    command -v curl >/dev/null 2>&1 || return 1
+    command -v bsdtar >/dev/null 2>&1 || return 1
+
+    archive=$(mktemp) || return 1
+    # GitHub's release-assets endpoint can terminate both urllib and curl on
+    # this host; codeload serves the same English pages from the source tree.
+    if ! curl -fsSL --retry 2 --retry-all-errors \
+        https://codeload.github.com/tldr-pages/tldr/zip/refs/heads/main \
+        -o "$archive"; then
+        rm -f -- "$archive"
+        return 1
+    fi
+
+    if bsdtar -tf "$archive" | grep -qE '(^/|(^|/)\.\.(/|$))'; then
+        rm -f -- "$archive"
+        _UPGRADE_STEP_NOTE="archivo tldr inseguro → no extraído"
+        return 1
+    fi
+
+    cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tldr/pages"
+    mkdir -p "$cache_dir"
+    if ! bsdtar -xf "$archive" -C "$cache_dir" \
+        --strip-components 2 'tldr-main/pages/*'; then
+        rm -f -- "$archive"
+        return 1
+    fi
+
+    rm -f -- "$archive"
+    _UPGRADE_STEP_NOTE="cache actualizada con fallback curl"
 }
 
 _upgrade_nvim() {
@@ -793,6 +831,12 @@ _upgrade_pass_cli() {
 
 _upgrade_codex() {
     command -v codex >/dev/null 2>&1 || return 0
+
+    if command -v mise >/dev/null 2>&1 && mise which codex >/dev/null 2>&1; then
+        _UPGRADE_STEP_NOTE="mise-managed → actualizado en paso mise"
+        return 0
+    fi
+
     codex update
 }
 
