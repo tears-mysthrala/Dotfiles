@@ -82,8 +82,18 @@ fi
 # ============================================================================
 # Language & Locale
 # ============================================================================
-export LANG="en_US.UTF-8"
-export LANGUAGE="en_US.UTF-8"
+# Only prefer en_US.UTF-8 when it is actually generated (locale -a).
+# Otherwise fall back to C.UTF-8 to avoid "setlocale: LC_COLLATE" warnings.
+# LC_ALL=C prefix keeps the check itself warning-free on dirty parents.
+if LC_ALL=C locale -a 2>/dev/null | LC_ALL=C grep -qiE '^en_US\.utf-?8$'; then
+  export LANG="en_US.UTF-8"
+  export LANGUAGE="en_US.UTF-8"
+  unset LC_ALL 2>/dev/null || true
+else
+  export LANG="C.UTF-8"
+  export LC_ALL="C.UTF-8"
+  unset LANGUAGE 2>/dev/null || true
+fi
 
 # ============================================================================
 # Path Configuration (Consolidated - single assignment)
