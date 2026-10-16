@@ -841,6 +841,15 @@ _upgrade_codex() {
 }
 
 _upgrade_system() {
+    # Omarchy owns the complete update lifecycle, including AUR and sudo.
+    # Keep its guard, snapshots, migrations and restart checks intact.
+    if [[ -r /etc/os-release ]] &&
+       grep -Eq "^ID=(\"omarchy\"|omarchy|'omarchy')$" /etc/os-release &&
+       command -v omarchy >/dev/null 2>&1; then
+        omarchy update
+        return $?
+    fi
+
     local _askpass="" _sudo_pipe
     if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
         _askpass=$(mktemp)
