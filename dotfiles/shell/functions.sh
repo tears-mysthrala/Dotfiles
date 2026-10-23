@@ -407,6 +407,14 @@ _upgrade_sudo_keepalive_start() {
 
     command -v sudo >/dev/null 2>&1 || return 0
 
+    # Omarchy starts and revokes its own authorization. Authenticating here
+    # would produce a second prompt after it deliberately starts cold.
+    if [[ -r /etc/os-release ]] &&
+       grep -Eq "^ID=(\"omarchy\"|omarchy|'omarchy')$" /etc/os-release &&
+       command -v omarchy >/dev/null 2>&1; then
+        return 0
+    fi
+
     # If upgrade's privileged Arch path is already covered by NOPASSWD, avoid
     # sudo -v entirely so the command can start without an authentication prompt.
     if command -v pacman >/dev/null 2>&1 && sudo -n pacman --version >/dev/null 2>&1; then
@@ -441,7 +449,7 @@ _upgrade_fix_cmd() {
         system)       echo "yay -Syu --noconfirm  # o tu gestor de distro" ;;
         brew)         echo "brew update && brew upgrade" ;;
         pacdiff)      echo "pacdiff --sudo --backup" ;;
-        firmware)     echo "fwupdmgr refresh && fwupdmgr update" ;;
+        firmware)     echo "fwupdmgr get-updates  # instalar firmware en una intervención separada" ;;
         tmux)         echo "~/.tmux/plugins/tpm/bin/update_plugins all" ;;
         hyprpm)       echo "hyprpm update" ;;
         mise)         echo "MISE_SELF_UPDATE=1 mise self-update --yes --no-plugins && mise upgrade" ;;
@@ -634,15 +642,28 @@ _upgrade_pacdiff() {
         return 0
     fi
 
-    files=$("$pacdiff_bin" --output --pacmandb 2>/dev/null) || true
+    files=$("$pacdiff_bin" --output --pacmandb 2>/dev/null) || return $?
     [[ -n "$files" ]] || return 0
-    "$pacdiff_bin" --sudo --backup
+    local pending
+    pending=$(printf '%s\n' "$files" | awk 'NF {n++} END {print n+0}')
+    _UPGRADE_STEP_NOTE="$pending archivo(s) de configuración pendiente(s) → revisar con pacdiff --sudo --backup"
+    # Omarchy has already revoked its sudo timestamp. Do not request another
+    # password or merge configuration automatically after the system stage.
+    printf '%s\n' "$files"
 }
 
 _upgrade_fwupdmgr() {
     command -v fwupdmgr >/dev/null 2>&1 || return 0
-    fwupdmgr refresh --force || fwupdmgr refresh || return $?
-    fwupdmgr update --assume-yes --no-reboot-check
+    local updates rc pending
+    updates=$(fwupdmgr get-updates --json --no-unreported-check 2>/dev/null)
+    rc=$?
+    if [[ $rc -eq 2 ]]; then
+        _UPGRADE_STEP_NOTE="sin firmware pendiente en el catálogo actual"
+        return 0
+    fi
+    [[ $rc -eq 0 ]] || return "$rc"
+    pending=$(printf '%s' "$updates" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("Devices", [])))') || return 1
+    _UPGRADE_STEP_NOTE="$pending dispositivo(s) con firmware pendiente → instalación separada; no se ha flasheado nada"
 }
 
 _upgrade_tmux() {
@@ -850,13 +871,8 @@ _upgrade_system() {
         return $?
     fi
 
-    local _askpass="" _sudo_pipe
-    if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
-        _askpass=$(mktemp)
-        printf '#!/bin/sh\nprintf "%%s\n" "%s"\n' "$DOTFILES_SUDO_PASS" > "$_askpass"
-        chmod 700 "$_askpass"
-        _sudo_pipe() { SUDO_ASKPASS="$_askpass" sudo -A "$@"; }
-    elif [ -t 0 ]; then
+    local _sudo_pipe
+    if [ -t 0 ]; then
         _sudo_pipe() { sudo "$@"; }
     else
         _sudo_pipe() { sudo -n "$@"; }
@@ -865,17 +881,9 @@ _upgrade_system() {
     local rc=0
     if command -v yay >/dev/null 2>&1; then
         yay -Pw 2>/dev/null || true
-        if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
-            SUDO_ASKPASS="$_askpass" yay -Syu --noconfirm --sudoflags="-A" || rc=$?
-        else
-            yay -Syu --noconfirm || rc=$?
-        fi
+        yay -Syu --noconfirm || rc=$?
     elif command -v paru >/dev/null 2>&1; then
-        if [[ -n "${DOTFILES_SUDO_PASS:-}" ]]; then
-            SUDO_ASKPASS="$_askpass" paru -Syu --noconfirm --sudoflags="-A" || rc=$?
-        else
-            paru -Syu --noconfirm || rc=$?
-        fi
+        paru -Syu --noconfirm || rc=$?
     elif command -v pacman >/dev/null 2>&1; then
         _sudo_pipe pacman -Syu --noconfirm || rc=$?
     elif command -v dnf >/dev/null 2>&1; then
@@ -891,7 +899,6 @@ _upgrade_system() {
         rc=1
     fi
 
-    [[ -n "$_askpass" ]] && rm -f -- "$_askpass"
     unset -f _sudo_pipe
     return $rc
 }
@@ -1128,7 +1135,10 @@ upgrade() {
         _upgrade_exec_shell
     fi
 
+    local final_status=0
+    [[ $failed -eq 0 ]] || final_status=1
     unset _upgrade_results _upgrade_errors _UPGRADE_DOTFILES_CHANGED _UPGRADE_STEP_NOTE _upgrade_sudo_keepalive_pid
+    return "$final_status"
 }
 
 # ============================================================================
