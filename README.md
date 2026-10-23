@@ -323,3 +323,5 @@ Released under the [MIT License](LICENSE).
 ---
 
 **Note:** This repository contains the Linux-native dotfiles only. The login environment is POSIX-friendly; interactive behavior intentionally targets Bash and Zsh. The PowerShell → Linux migration that produced this tree is recorded as historical documentation in `docs/legacy/MIGRATION.md`.
+
+See [upgrade ownership and external application checks](docs/upgrade-ownership.md).

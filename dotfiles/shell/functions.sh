@@ -472,6 +472,7 @@ _upgrade_fix_cmd() {
         gcloud)       echo "gcloud components update --quiet" ;;
         codex)        echo "codex update" ;;
         claude)       echo "claude update" ;;
+        external-apps) echo "laptop-external-check  # revisar versión/procedencia; no reemplaza AppImages" ;;
         dotfiles)     echo "cd ~/.dotfiles && git status" ;;
         dotfiles-check) echo "cd ~/.dotfiles && git status" ;;
         *)            echo "revisa la salida de arriba" ;;
@@ -504,9 +505,31 @@ _upgrade_run_step() {
     fi
 }
 
+_upgrade_mise_manages() {
+    command -v mise >/dev/null 2>&1 || return 1
+    local current_bin managed_bin mise_bin current_real managed_real
+    current_bin=$(command -v "$1") || return 1
+    managed_bin=$(mise which "$1" 2>/dev/null) || return 1
+    current_real=$(readlink -f -- "$current_bin") || return 1
+    managed_real=$(readlink -f -- "$managed_bin") || return 1
+    [[ -n "$current_real" && "$current_real" == "$managed_real" ]] && return 0
+    # A generated mise wrapper executes the managed backend through mise itself.
+    case "$current_bin" in
+        "${MISE_DATA_DIR:-$HOME/.local/share/mise}/command-wrappers/bin/"*)
+            mise_bin=$(command -v mise) || return 1
+            [[ "$current_real" == "$(readlink -f -- "$mise_bin")" ]] && return 0
+            ;;
+    esac
+    return 1
+}
+
 _upgrade_uv() {
     command -v uv >/dev/null 2>&1 || return 0
-    uv self update 2>/dev/null || true
+    if _upgrade_mise_manages uv; then
+        _UPGRADE_STEP_NOTE="runtime uv gestionado por mise → consultar etapa mise"
+    else
+        uv self update || return $?
+    fi
     uv tool upgrade --all
 }
 
@@ -595,8 +618,13 @@ _upgrade_pnpm() {
 
 _upgrade_bun() {
     command -v bun >/dev/null 2>&1 || return 0
-    # Update bun runtime; global packages handled separately if any exist
-    bun upgrade 2>/dev/null || true
+    local bun_path
+    bun_path=$(command -v bun)
+    if command -v pacman >/dev/null 2>&1 && pacman -Qqo "$bun_path" >/dev/null 2>&1; then
+        _UPGRADE_STEP_NOTE="Bun gestionado por pacman → consultar etapa system"
+        return 0
+    fi
+    bun upgrade
 }
 
 _upgrade_npx() {
@@ -617,7 +645,7 @@ _upgrade_flatpak() {
 _upgrade_mise() {
     command -v mise >/dev/null 2>&1 || return 0
     if [[ "${MISE_SELF_UPDATE:-0}" == "1" ]]; then
-        mise self-update --yes --no-plugins 2>/dev/null || true
+        mise self-update --yes --no-plugins || return $?
     fi
     mise upgrade
 }
@@ -781,7 +809,7 @@ _upgrade_tldr() {
 
 _upgrade_nvim() {
     command -v nvim >/dev/null 2>&1 || return 0
-    nvim --headless "+Lazy! sync" +qa 2>/dev/null || true
+    nvim --headless "+Lazy! sync" +qa
 }
 
 _upgrade_gh() {
@@ -810,7 +838,12 @@ _upgrade_gcloud() {
 
 _upgrade_claude() {
     command -v claude >/dev/null 2>&1 || return 0
-    claude update && claude plugin marketplace update
+    if _upgrade_mise_manages claude; then
+        _UPGRADE_STEP_NOTE="runtime Claude gestionado por mise; marketplaces revisados aquí"
+    else
+        claude update || return $?
+    fi
+    claude plugin marketplace update
 }
 
 _upgrade_docker() {
@@ -823,11 +856,19 @@ _upgrade_docker() {
 
 _upgrade_pi() {
     command -v pi >/dev/null 2>&1 || return 0
-    if pi update 2>&1 | grep -q "cannot self-update this installation"; then
-        _UPGRADE_STEP_NOTE="npx-managed pi → skip"
+    if _upgrade_mise_manages pi; then
+        _UPGRADE_STEP_NOTE="pi gestionado por mise → consultar etapa mise"
         return 0
     fi
-    pi update
+    local output rc
+    output=$(pi update 2>&1)
+    rc=$?
+    [[ -n "$output" ]] && printf '%s\n' "$output"
+    if grep -q "cannot self-update this installation" <<<"$output"; then
+        _UPGRADE_STEP_NOTE="pi gestionado externamente → consultar mise/npm según instalación"
+        return 0
+    fi
+    return "$rc"
 }
 
 _upgrade_pass_cli() {
@@ -844,7 +885,7 @@ _upgrade_pass_cli() {
 
     if grep -qiE 'Local encryption key not found|forcing logout|login|authenticate' <<<"$output"; then
         _UPGRADE_STEP_NOTE="sesión cerrada por seguridad → pass-cli login"
-        return 0
+        return "$rc"
     fi
 
     return "$rc"
@@ -853,12 +894,21 @@ _upgrade_pass_cli() {
 _upgrade_codex() {
     command -v codex >/dev/null 2>&1 || return 0
 
-    if command -v mise >/dev/null 2>&1 && mise which codex >/dev/null 2>&1; then
-        _UPGRADE_STEP_NOTE="mise-managed → actualizado en paso mise"
+    if _upgrade_mise_manages codex; then
+        _UPGRADE_STEP_NOTE="mise-managed → consultar resultado de etapa mise"
         return 0
     fi
 
     codex update
+}
+
+_upgrade_external_apps() {
+    if ! command -v laptop-external-check >/dev/null 2>&1; then
+        _UPGRADE_STEP_NOTE="sin auditor local de aplicaciones externas; revisar AppImages por separado"
+        return 0
+    fi
+    _UPGRADE_STEP_NOTE="comprobación de procedencia/versiones; sin reemplazo automático de AppImages"
+    laptop-external-check
 }
 
 _upgrade_system() {
@@ -1085,6 +1135,7 @@ upgrade() {
         "gcloud:_upgrade_gcloud"
         "codex:_upgrade_codex"
         "claude:_upgrade_claude"
+        "external-apps:_upgrade_external_apps"
         "dotfiles-check:_upgrade_dotfiles_postcheck"
         "pacdiff:_upgrade_pacdiff"
     )
